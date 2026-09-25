@@ -142,6 +142,9 @@ async function plan() {
   if (event === "repository_dispatch") {
     // сервер на связи, но Claude Code не смог продолжить (лимит) — хук handoff.mjs прислал, что делать
     out.jobs = dispatchJobs(payload.client_payload || {});
+    // текущие правила бота с сервера (zhorik-cloud.mjs) — главнее копии в репозитории, она может отставать
+    const rules = payload.client_payload?.rules;
+    if (out.jobs.length && typeof rules === "string" && rules.trim()) out.rules = rules.slice(0, 40_000);
   } else if (event === "workflow_dispatch") {
     const i = payload.inputs || {};
     const chat = String(i.chat_id || "");
@@ -275,7 +278,16 @@ function runClaude(prompt, { cwd = null, dev = false } = {}) {
     { cwd: workDir, env: childEnv, encoding: "utf8", timeout: (dev ? cfg.continueMin : 6) * 60_000, maxBuffer: 64 * 1024 * 1024 },
   );
   if (r.error || r.status !== 0) {
-    log(`claude завершился с ошибкой (код ${r.status ?? "—"}): ${(r.error?.message || r.stderr || "").slice(0, 300)}`);
+    // причина (ключ, баланс, доступ к модели) — в JSON-ответе claude на stdout, а не в stderr
+    let detail = r.error?.message || "";
+    try {
+      const res = JSON.parse((r.stdout || "").trim().split("\n").pop());
+      detail ||= `${res.subtype || ""} ${res.result || ""}`;
+    } catch {
+      // не JSON
+    }
+    detail ||= r.stderr || r.stdout || "";
+    log(`claude завершился с ошибкой (код ${r.status ?? "—"}): ${detail.replace(/\s+/g, " ").trim().slice(0, 300)}`);
     return null;
   }
   try {
@@ -305,7 +317,11 @@ function continueProject(job) {
 }
 
 async function run() {
-  const { jobs = [], confirmOffset = 0, dryRun = false } = JSON.parse(fs.readFileSync(cfg.jobsFile, "utf8"));
+  const { jobs = [], confirmOffset = 0, dryRun = false, rules = "" } = JSON.parse(fs.readFileSync(cfg.jobsFile, "utf8"));
+  if (rules) {
+    cfg.personaFile = path.join(path.dirname(cfg.jobsFile), "zhorik-rules.md");
+    fs.writeFileSync(cfg.personaFile, rules);
+  }
   let failed = 0;
   for (const job of jobs) {
     try {

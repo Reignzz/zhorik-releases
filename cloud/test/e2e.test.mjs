@@ -337,6 +337,7 @@ test("задачі з черги: промпт як на сервері, жур�
         jobs: [{ chat_id: "42", messages: [{ message_id: 77, user: task.from, ts: "t", text: task.text }], tasks: [task] }],
         project: { repo: "o/site", branch: "master" },
         report_chat_id: "42",
+        rules: "# Жорик — правила з сервера\nСВІЖЕ ПРАВИЛО",
       },
     }),
   );
@@ -349,7 +350,10 @@ test("задачі з черги: промпт як на сервері, жур�
   const prompt = call.argv[call.argv.indexOf("-p") + 1];
   assert.match(prompt, /## Новые задачи \(pending\)/);
   assert.equal(JSON.parse(prompt.slice(prompt.indexOf("\n[", prompt.indexOf("(pending)")))).at(0).id, task.id, "задачі — тим самим JSON, що на сервері");
-  assert.match(call.argv[call.argv.indexOf("--append-system-prompt") + 1], /Задачи из очереди бота/);
+  const system = call.argv[call.argv.indexOf("--append-system-prompt") + 1];
+  assert.match(system, /Задачи из очереди бота/);
+  assert.match(system, /СВІЖЕ ПРАВИЛО[\s\S]*Резервный режим/, "правила з сервера — першими, замість копії з репозиторію");
+  assert.doesNotMatch(system, /Черновик характера/);
   const sent = mock.calls.filter((c) => c.url.endsWith("/sendMessage"));
   assert.equal(sent.length, 1);
   assert.equal(sent[0].body.reply_parameters.message_id, 77);
