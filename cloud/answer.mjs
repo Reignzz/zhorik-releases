@@ -79,8 +79,11 @@ async function plan() {
     log("резерв выключен (ZHORIK_CLOUD=off)");
     return save();
   }
-  if (!cfg.token) throw new Error("нет секрета TELEGRAM_BOT_TOKEN");
-  if (!cfg.allow.size) throw new Error("нет секрета ZHORIK_ALLOWED_CHATS — кому отвечать, неизвестно");
+  // резерв ещё не настроен (нет секретов) — спокойно выходим, а не падаем каждые 15 минут
+  if (!cfg.token || !cfg.allow.size) {
+    log("резерв не настроен: нужны секреты TELEGRAM_BOT_TOKEN и ZHORIK_ALLOWED_CHATS");
+    return save();
+  }
   await ensurePrivateRepo();
 
   const event = env.GITHUB_EVENT_NAME || "";

@@ -194,3 +194,12 @@ test("выключатель ZHORIK_CLOUD=off", async () => {
   assert.equal(mock.calls.length, 0);
   assert.match(fs.readFileSync(path.join(TMP, "gh-output"), "utf8"), /has_jobs=false/);
 });
+
+test("без секретов резерв спокойно выходит, а не падает", async () => {
+  mock.calls = [];
+  fs.writeFileSync(path.join(TMP, "gh-output"), "");
+  const { stdout } = await answer("plan", { GITHUB_EVENT_NAME: "schedule", TELEGRAM_BOT_TOKEN: "", ZHORIK_HEARTBEAT: "1" });
+  assert.match(stdout, /не настроен/);
+  assert.match(fs.readFileSync(path.join(TMP, "gh-output"), "utf8"), /has_jobs=false/);
+  assert.equal(mock.calls.length, 0);
+});
