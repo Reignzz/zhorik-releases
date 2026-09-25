@@ -30,11 +30,12 @@ const log = (...a) => console.log("zhorik-cloud:", ...a);
 const TG_API = env.ZHORIK_TG_API || "https://api.telegram.org";
 const GH_API = env.ZHORIK_GH_API || "https://api.github.com";
 const CLOUD_BRANCH = "zhorik/cloud";
+const SILENT = "(тиша)";
 
 const cfg = {
   token: env.TELEGRAM_BOT_TOKEN || "",
   allow: parseAllowList(env.ZHORIK_ALLOWED_CHATS),
-  model: env.ZHORIK_MODEL || "claude-opus-5-5",
+  model: env.ZHORIK_MODEL || "claude-fable-5-1", // та же модель, что у Жорика на сервере (zhorik-run.sh)
   botDir: path.resolve(ROOT, env.ZHORIK_BOT_DIR || "bot"),
   personaFile: env.ZHORIK_PERSONA_FILE ? path.resolve(ROOT, env.ZHORIK_PERSONA_FILE) : "",
   jobsFile: env.ZHORIK_JOBS || path.join(env.RUNNER_TEMP || os.tmpdir(), "zhorik-jobs.json"),
@@ -95,7 +96,13 @@ const validBranch = (s) => /^(?!-)(?!.*\.\.)[\w./-]+$/.test(s);
 function dispatchJobs(p) {
   const jobs = (Array.isArray(p.jobs) ? p.jobs : [])
     .filter((j) => cfg.allow.has(String(j.chat_id)) && Array.isArray(j.messages) && j.messages.length)
-    .map((j) => ({ chat_id: String(j.chat_id), messages: j.messages, history: Array.isArray(j.history) ? j.history : [] }));
+    .map((j) => ({
+      chat_id: String(j.chat_id),
+      messages: j.messages,
+      history: Array.isArray(j.history) ? j.history : [],
+      // задачи из очереди бота (zhorik-cloud.mjs на сервере) — как их видит Жорик: id, from, text, context…
+      ...(Array.isArray(j.tasks) ? { tasks: j.tasks.filter((t) => t && typeof t === "object").slice(0, 20) } : {}),
+    }));
   const proj = p.project;
   if (proj && cfg.continueSwitch !== "off") {
     const report = String(p.report_chat_id || "");
@@ -218,11 +225,12 @@ function prepareProject({ repo, branch }) {
 }
 
 // Коммит и push результата облака в zhorik/cloud (файлы с секретами — никогда).
-function publishProject(dir, report) {
+function publishProject(dir, report, tasks = []) {
   const logFile = path.join(dir, ".zhorik", "CLOUD_LOG.md");
   fs.mkdirSync(path.dirname(logFile), { recursive: true });
   if (!fs.existsSync(logFile)) fs.writeFileSync(logFile, "# Журнал облачного резерва\n\nЧто Жорик сделал в облаке, пока на сервере кончились лимиты.\n");
-  fs.appendFileSync(logFile, `\n## ${new Date().toISOString()}\n\n${report}\n`);
+  const taskList = tasks.map((t) => `- #${t.id} «${String(t.text ?? "").replace(/\s+/g, " ").slice(0, 150)}»`).join("\n");
+  fs.appendFileSync(logFile, `\n## ${new Date().toISOString()}\n\n${taskList ? `Задачі:\n${taskList}\n\nЗвіт у чат:\n\n` : ""}${report}\n`);
   git(dir, "add", "-A");
   const staged = git(dir, "diff", "--cached", "--name-only", "-z").split("\0").filter(Boolean);
   const secret = staged.filter(isSecretPath);
@@ -237,16 +245,18 @@ function publishProject(dir, report) {
 }
 
 function runClaude(prompt, { cwd = null, dev = false } = {}) {
-  const parts = [fs.readFileSync(path.join(HERE, "reserve-prompt.md"), "utf8")];
-  if (dev) parts.push(fs.readFileSync(path.join(HERE, "continue-prompt.md"), "utf8"));
+  const parts = [];
   const workDir = cwd || (fs.existsSync(cfg.botDir) ? cfg.botDir : ROOT);
   // Правила й характер бота: ZHORIK_PERSONA_FILE (наприклад ZHORIK.md бота) → CLAUDE.md у ZHORIK_BOT_DIR →
   // чернетка cloud/persona.md. CLAUDE.md бота в чужій теці (проєкт) сам не підхопиться — додаємо текст явно.
+  // Правила резерву — після них: де розходяться (виклад, git, скрипти сервера), головніші вони.
   const personaFile = cfg.personaFile && fs.existsSync(cfg.personaFile) ? cfg.personaFile : null;
   const botClaude = path.join(cfg.botDir, "CLAUDE.md");
   if (personaFile) parts.push(`# Правила й характер бота\n\n${fs.readFileSync(personaFile, "utf8")}`);
   else if (!fs.existsSync(botClaude)) parts.push(fs.readFileSync(path.join(HERE, "persona.md"), "utf8"));
   else if (path.resolve(workDir) !== cfg.botDir) parts.push(`# CLAUDE.md бота (характер і правила)\n\n${fs.readFileSync(botClaude, "utf8")}`);
+  parts.push(fs.readFileSync(path.join(HERE, "reserve-prompt.md"), "utf8"));
+  if (dev) parts.push(fs.readFileSync(path.join(HERE, "continue-prompt.md"), "utf8"));
   // токены Telegram и GitHub модели не нужны — убираем из окружения claude
   const childEnv = { ...env };
   for (const k of Object.keys(childEnv)) {
@@ -284,7 +294,7 @@ function continueProject(job) {
     const { dir, note } = prepareProject(job.project);
     const report = runClaude(buildContinuePrompt(job, note), { cwd: dir, dev: true });
     if (!report) return { text: cfg.continueFailLine, failed: true };
-    const pushed = publishProject(dir, report);
+    const pushed = publishProject(dir, report, job.tasks);
     log(pushed ? `проект: изменения запушены в ${CLOUD_BRANCH}` : "проект: изменений нет");
     return { text: report, failed: false };
   } catch (err) {
@@ -307,6 +317,11 @@ async function run() {
         if (res.failed) failed++;
       } else {
         answer = runClaude(buildPrompt(job)) || cfg.fallbackLine;
+      }
+      // «(тиша)» — по правилам бота в чат писати нічого (самі балачки, а не задачі)
+      if (answer.trim() === SILENT) {
+        log("відповідь: (тиша) — у чат нічого не надсилаю");
+        continue;
       }
       if (dryRun) {
         // только ручная проверка в приватном репозитории: показываем ответ в журнале, в Telegram не шлём

@@ -12,6 +12,10 @@
 Резерв расходует **ключ API Anthropic** (оплата по факту), а не подписку: облачные сессии Claude Code делят лимиты
 с компьютером, поэтому, когда лимит кончился там, он кончился и в облаке.
 
+Бот с очередью задач вместо плагина Telegram (как @odesbud_bot: `bot.mjs` + `zhorik-run.sh`) подключается не хуками
+из `hooks/`, а серверным скриптом `zhorik-cloud.mjs` — он в ветке `zhorik-bot` репозитория `Reignzz/Zhorikweb`: задачи
+приходят в `client_payload.jobs[].tasks`, расписание (опрос Telegram) там выключено, чтобы не мешать `getUpdates` бота.
+
 ## Файлы
 
 - `answer.mjs` — запуск в Actions: `plan` (есть ли на что отвечать), `run` (ответить).
@@ -33,7 +37,7 @@
    - `TELEGRAM_BOT_TOKEN` — тот же токен, что у плагина (`~/.claude/channels/telegram/.env`);
    - `ANTHROPIC_API_KEY` — ключ из console.anthropic.com, лучше отдельный, с лимитом расходов;
    - `ZHORIK_ALLOWED_CHATS` — id чатов через запятую (те же, что в allowlist плагина `~/.claude/channels/telegram/access.json`).
-3. Там же → **Variables** (необязательно): `ZHORIK_MODEL` (по умолчанию `claude-opus-5-5`), `ZHORIK_BOT_DIR`,
+3. Там же → **Variables** (необязательно): `ZHORIK_MODEL` (по умолчанию `claude-fable-5-1`, как у Жорика на сервере), `ZHORIK_BOT_DIR`,
    `ZHORIK_TAKEOVER_AFTER_MIN` (по умолчанию 20), `ZHORIK_CLOUD=off` — выключить резерв.
 4. Fine-grained токен GitHub **только на этот репозиторий**: Contents — Read and write (для `repository_dispatch`),
    Variables — Read and write (для пульса). На компьютере — файл `~/.claude/zhorik-cloud.env`, права 600:
@@ -55,6 +59,6 @@
 
 ## Деньги
 
-- Один ответ ≈ $0.1–0.35 на `claude-opus-5-5` (в основном системный промпт Claude Code и CLAUDE.md; повторные ответы в течение часа дешевле за счёт кеша).
+- Один ответ ≈ $0.1–0.35 (зависит от модели) (в основном системный промпт Claude Code и CLAUDE.md; повторные ответы в течение часа дешевле за счёт кеша).
   Дешевле — `ZHORIK_MODEL=claude-sonnet-5`; решает владелец.
 - GitHub Actions в приватном репозитории: бесплатно 2000 минут в месяц; расписание (пн–пт, 12 часов, раз в 15 минут) ≈ 1000 минут, ответы — по 1–2 минуты.

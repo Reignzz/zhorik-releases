@@ -188,7 +188,9 @@ export function buildContinuePrompt(job, note = "") {
     "Що робиться і що далі — NEXT.md у корені проєкту; що вже зроблено в хмарі — .zhorik/CLOUD_LOG.md (якщо є).",
   ];
   if (note) lines.push("", `Увага: ${note}`);
-  if (job.messages?.length) lines.push("", buildPrompt(job));
+  // задачі з черги бота — так само, як їх бачить Жорик на сервері (zhorik-run.sh: «## Новые задачи (pending)»)
+  if (job.tasks?.length) lines.push("", "## Новые задачи (pending)", JSON.stringify(job.tasks, null, 2));
+  else if (job.messages?.length) lines.push("", buildPrompt(job));
   else lines.push("", "Нових повідомлень немає. Продовж роботу з того місця, де зупинився, і наприкінці напиши короткий звіт для Telegram.");
   return lines.join("\n");
 }

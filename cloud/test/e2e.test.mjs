@@ -58,7 +58,8 @@ if (dev) {
   fs.appendFileSync("feature.txt", "крок\\n");
   fs.writeFileSync(".env", "SECRET=1\\n");
 }
-const result = dev ? "Зробив крок: feature.txt. Далі — перевірка." : "Ну таки здрасьте! Відповідаю з резерву 😉";
+const prompt = argv[argv.indexOf("-p") + 1] || "";
+const result = prompt.includes("тільки балачки") ? "(тиша)" : dev ? "Зробив крок: feature.txt. Далі — перевірка." : "Ну таки здрасьте! Відповідаю з резерву 😉";
 console.log(JSON.stringify({ type: "result", subtype: "success", is_error: false, result, num_turns: 1, total_cost_usd: 0.01 }));
 `,
     { mode: 0o755 },
@@ -144,7 +145,7 @@ test("dispatch: plan находит задание, run отвечает в Tele
   const call = JSON.parse(fs.readFileSync(path.join(TMP, "claude-call.json"), "utf8"));
   assert.equal(call.hasTgToken, false);
   assert.ok(call.argv.includes("-p"));
-  assert.match(call.argv[call.argv.indexOf("--append-system-prompt") + 1], /Резервный режим[\s\S]*Черновик характера/);
+  assert.match(call.argv[call.argv.indexOf("--append-system-prompt") + 1], /Черновик характера[\s\S]*Резервный режим/, "правила резерву — після характеру");
 });
 
 test("чужой чат из dispatch игнорируется", async () => {
@@ -307,4 +308,63 @@ test("ZHORIK_CONTINUE=off: проєкт не продовжуємо", async () =
   fs.writeFileSync(path.join(TMP, "gh-output"), "");
   await answer("plan", { GITHUB_EVENT_NAME: "repository_dispatch", GITHUB_EVENT_PATH: eventPath, ZHORIK_CONTINUE: "off" });
   assert.match(fs.readFileSync(path.join(TMP, "gh-output"), "utf8"), /has_jobs=false/);
+});
+
+// ---------- задачі з черги бота (zhorik-cloud.mjs на сервері): як у zhorik-run.sh, звіт у чат, (тиша) ----------
+
+async function projectRemote(name) {
+  const remotes = path.join(TMP, name);
+  const bare = path.join(remotes, "o", "site.git");
+  fs.mkdirSync(path.dirname(bare), { recursive: true });
+  await run("git", ["init", "-q", "--bare", "-b", "master", bare]);
+  const seed = path.join(TMP, `${name}-seed`);
+  await run("git", ["clone", "-q", bare, seed]);
+  fs.writeFileSync(path.join(seed, "README.md"), "сайт\n");
+  await git(seed, "add", "-A");
+  await git(seed, "commit", "-q", "-m", "init");
+  await git(seed, "push", "-q", "origin", "HEAD:master");
+  return { remotes, bare };
+}
+
+test("задачі з черги: промпт як на сервері, журнал із задачами, відповідь на повідомлення-задачу", async () => {
+  const { remotes, bare } = await projectRemote("remotes-q");
+  const task = { id: 1790000000001, from: "Маргарита @margo (id 5)", chat: 42, mid: 77, text: "Жорик, заміни телефон у футері", target: "site", status: "new", context: ["[08:44] Олександр: ок"] };
+  const eventPath = path.join(TMP, "event-queue.json");
+  fs.writeFileSync(
+    eventPath,
+    JSON.stringify({
+      client_payload: {
+        jobs: [{ chat_id: "42", messages: [{ message_id: 77, user: task.from, ts: "t", text: task.text }], tasks: [task] }],
+        project: { repo: "o/site", branch: "master" },
+        report_chat_id: "42",
+      },
+    }),
+  );
+  const env = { GITHUB_EVENT_NAME: "repository_dispatch", GITHUB_EVENT_PATH: eventPath, ZHORIK_GIT_BASE: `file://${remotes}`, ZHORIK_WORK_DIR: path.join(TMP, "wd-q") };
+  mock.calls = [];
+  await answer("plan", env);
+  await answer("run", env);
+
+  const call = JSON.parse(fs.readFileSync(path.join(TMP, "claude-call.json"), "utf8"));
+  const prompt = call.argv[call.argv.indexOf("-p") + 1];
+  assert.match(prompt, /## Новые задачи \(pending\)/);
+  assert.equal(JSON.parse(prompt.slice(prompt.indexOf("\n[", prompt.indexOf("(pending)")))).at(0).id, task.id, "задачі — тим самим JSON, що на сервері");
+  assert.match(call.argv[call.argv.indexOf("--append-system-prompt") + 1], /Задачи из очереди бота/);
+  const sent = mock.calls.filter((c) => c.url.endsWith("/sendMessage"));
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].body.reply_parameters.message_id, 77);
+
+  const check = path.join(TMP, "check-q");
+  await run("git", ["clone", "-q", "-b", "zhorik/cloud", bare, check]);
+  assert.match(fs.readFileSync(path.join(check, ".zhorik", "CLOUD_LOG.md"), "utf8"), /Задачі:\n- #1790000000001 «Жорик, заміни телефон у футері»/);
+});
+
+test("(тиша): самі балачки — у чат нічого не йде", async () => {
+  const eventPath = path.join(TMP, "event-silent.json");
+  fs.writeFileSync(eventPath, JSON.stringify({ client_payload: { jobs: [{ chat_id: "42", messages: [{ message_id: 5, text: "тільки балачки" }] }] } }));
+  const env = { GITHUB_EVENT_NAME: "repository_dispatch", GITHUB_EVENT_PATH: eventPath };
+  mock.calls = [];
+  await answer("plan", env);
+  await answer("run", env);
+  assert.equal(mock.calls.filter((c) => c.url.endsWith("/sendMessage")).length, 0);
 });
