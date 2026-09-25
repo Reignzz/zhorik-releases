@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "StopFailure": [
+      {
+        "matcher": "rate_limit|overloaded|server_error|billing_error|authentication_failed|account_on_hold",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/zhorik/cloud/hooks/handoff.mjs\""
+          }
+        ]
+      }
+    ]
+  }
+}

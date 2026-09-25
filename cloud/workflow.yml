@@ -1,0 +1,77 @@
+# Облачный резерв Жорика. Шаблон: скопировать в ПРИВАТНЫЙ репозиторий как .github/workflows/zhorik-cloud.yml
+# (в публичном репозитории answer.mjs откажется работать — логи Actions там видны всем).
+#
+# Секреты: TELEGRAM_BOT_TOKEN, ANTHROPIC_API_KEY, ZHORIK_ALLOWED_CHATS (id чатов через запятую),
+#          ZHORIK_GH_PAT — только если проект, который продолжает облако, лежит в другом репозитории.
+# Переменные: ZHORIK_CLOUD (on/off), ZHORIK_CONTINUE (on/off — продолжать проект), ZHORIK_MODEL, ZHORIK_BOT_DIR,
+#             ZHORIK_PERSONA_FILE, ZHORIK_CONTINUE_MAX_TURNS, ZHORIK_CONTINUE_TIMEOUT_MIN, ZHORIK_TAKEOVER_AFTER_MIN,
+#             ZHORIK_HEARTBEAT (пишет hooks/heartbeat.mjs с сервера).
+name: zhorik-cloud
+
+on:
+  # сервер на связи, но Claude остановился (лимит, сбой API) — hooks/handoff.mjs: сообщения + проект
+  repository_dispatch:
+    types: [zhorik_handoff]
+  # сервер выключен: пн–пт, 05:00–16:59 UTC (≈ 08:00–19:59 по Киеву летом), каждые 15 минут
+  schedule:
+    - cron: "*/15 5-16 * * 1-5"
+  # ручная проверка: dry_run=true — ответ только в журнале, в Telegram не уходит
+  workflow_dispatch:
+    inputs:
+      chat_id:
+        description: "id чата из ZHORIK_ALLOWED_CHATS"
+        required: true
+      text:
+        description: "текст сообщения"
+        required: true
+      dry_run:
+        description: "не отправлять в Telegram, показать ответ в журнале"
+        type: boolean
+        default: true
+
+concurrency:
+  group: zhorik-cloud
+  cancel-in-progress: false
+
+permissions:
+  contents: write # push ветки zhorik/cloud (продолжение проекта в этом же репозитории); main/master облако не трогает
+
+jobs:
+  answer:
+    # по расписанию — только когда сервер шлёт пульс (иначе опрашивать Telegram незачем, а минуты Actions тратятся)
+    if: github.event_name != 'schedule' || vars.ZHORIK_HEARTBEAT != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      ZHORIK_ALLOWED_CHATS: ${{ secrets.ZHORIK_ALLOWED_CHATS }}
+      ZHORIK_CLOUD: ${{ vars.ZHORIK_CLOUD }}
+      ZHORIK_CONTINUE: ${{ vars.ZHORIK_CONTINUE }}
+      ZHORIK_CONTINUE_MAX_TURNS: ${{ vars.ZHORIK_CONTINUE_MAX_TURNS }}
+      ZHORIK_CONTINUE_TIMEOUT_MIN: ${{ vars.ZHORIK_CONTINUE_TIMEOUT_MIN }}
+      ZHORIK_MODEL: ${{ vars.ZHORIK_MODEL }}
+      ZHORIK_BOT_DIR: ${{ vars.ZHORIK_BOT_DIR }}
+      ZHORIK_PERSONA_FILE: ${{ vars.ZHORIK_PERSONA_FILE }}
+      ZHORIK_HEARTBEAT: ${{ vars.ZHORIK_HEARTBEAT }}
+      ZHORIK_TAKEOVER_AFTER_MIN: ${{ vars.ZHORIK_TAKEOVER_AFTER_MIN }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # токен не остаётся в .git/config — агент внутри не сможет пушить сам, пушит только обёртка
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Есть ли что делать
+        id: plan
+        run: node cloud/answer.mjs plan
+      - name: Установить Claude Code
+        if: steps.plan.outputs.has_jobs == 'true'
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Ответить и продолжить
+        if: steps.plan.outputs.has_jobs == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ZHORIK_GH_PAT: ${{ secrets.ZHORIK_GH_PAT }}
+        run: node cloud/answer.mjs run
