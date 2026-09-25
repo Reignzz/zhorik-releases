@@ -50,8 +50,16 @@ before(async () => {
   fs.writeFileSync(
     path.join(bin, "claude"),
     `#!/usr/bin/env node
-require("fs").writeFileSync(${JSON.stringify(path.join(TMP, "claude-call.json"))}, JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd(), hasTgToken: "TELEGRAM_BOT_TOKEN" in process.env }));
-console.log(JSON.stringify({ type: "result", subtype: "success", is_error: false, result: "Ну таки здрасьте! Відповідаю з резерву 😉", num_turns: 1, total_cost_usd: 0.01 }));
+const fs = require("fs");
+const argv = process.argv.slice(2);
+const dev = (argv[argv.indexOf("--allowedTools") + 1] || "").includes("Edit");
+fs.writeFileSync(${JSON.stringify(path.join(TMP, "claude-call.json"))}, JSON.stringify({ argv, cwd: process.cwd(), dev, hasTgToken: "TELEGRAM_BOT_TOKEN" in process.env, hasGitCfg: Object.keys(process.env).some((k) => k.startsWith("GIT_CONFIG_")), hasGhToken: "GITHUB_TOKEN" in process.env }));
+if (dev) {
+  fs.appendFileSync("feature.txt", "крок\\n");
+  fs.writeFileSync(".env", "SECRET=1\\n");
+}
+const result = dev ? "Зробив крок: feature.txt. Далі — перевірка." : "Ну таки здрасьте! Відповідаю з резерву 😉";
+console.log(JSON.stringify({ type: "result", subtype: "success", is_error: false, result, num_turns: 1, total_cost_usd: 0.01 }));
 `,
     { mode: 0o755 },
   );
@@ -78,13 +86,15 @@ function answerEnv(extra) {
 
 const answer = (cmd, env) => run(process.execPath, [path.join(CLOUD, "answer.mjs"), cmd], { env: answerEnv(env) });
 
-function hook(transcript) {
+function hook(transcript, cwd) {
   const child = execFile(process.execPath, [path.join(CLOUD, "hooks", "handoff.mjs")], {
     env: { PATH: process.env.PATH, HOME: TMP, ZHORIK_GH_REPO: "o/r", ZHORIK_GH_TOKEN: "pat", ZHORIK_GH_API: base },
   });
-  child.stdin.end(JSON.stringify({ hook_event_name: "StopFailure", transcript_path: transcript }));
+  child.stdin.end(JSON.stringify({ hook_event_name: "StopFailure", transcript_path: transcript, cwd }));
   return new Promise((resolve) => child.on("exit", resolve));
 }
+
+const git = (cwd, ...args) => run("git", ["-C", cwd, "-c", "user.name=t", "-c", "user.email=t@t", ...args]);
 
 test("хук передаёт неотвеченные сообщения в облако один раз", async () => {
   const transcript = path.join(TMP, "t.jsonl");
@@ -101,9 +111,11 @@ test("хук передаёт неотвеченные сообщения в о�
   const d = mock.calls.filter((c) => c.url === "/repos/o/r/dispatches");
   assert.equal(d.length, 1);
   assert.equal(d[0].auth, "Bearer pat");
-  assert.equal(d[0].body.event_type, "tg_message");
-  assert.equal(d[0].body.client_payload.chat_id, "42");
-  assert.equal(d[0].body.client_payload.messages[0].text, "що в брифі?");
+  assert.equal(d[0].body.event_type, "zhorik_handoff");
+  assert.equal(d[0].body.client_payload.jobs[0].chat_id, "42");
+  assert.equal(d[0].body.client_payload.jobs[0].messages[0].text, "що в брифі?");
+  assert.equal(d[0].body.client_payload.report_chat_id, "42");
+  assert.equal(d[0].body.client_payload.project, null);
 
   mock.calls = [];
   await hook(transcript);
@@ -114,7 +126,7 @@ test("dispatch: plan находит задание, run отвечает в Tele
   const eventPath = path.join(TMP, "event.json");
   fs.writeFileSync(
     eventPath,
-    JSON.stringify({ client_payload: { chat_id: "42", messages: [{ message_id: "7", user: "margo", ts: "t1", text: "привіт" }], history: [] } }),
+    JSON.stringify({ client_payload: { jobs: [{ chat_id: "42", messages: [{ message_id: "7", user: "margo", ts: "t1", text: "привіт" }], history: [] }] } }),
   );
   mock.calls = [];
   fs.writeFileSync(path.join(TMP, "gh-output"), "");
@@ -137,7 +149,7 @@ test("dispatch: plan находит задание, run отвечает в Tele
 
 test("чужой чат из dispatch игнорируется", async () => {
   const eventPath = path.join(TMP, "event-foreign.json");
-  fs.writeFileSync(eventPath, JSON.stringify({ client_payload: { chat_id: "13", messages: [{ text: "spam" }] } }));
+  fs.writeFileSync(eventPath, JSON.stringify({ client_payload: { jobs: [{ chat_id: "13", messages: [{ text: "spam" }] }], project: { repo: "o/proj", branch: "main" }, report_chat_id: "13" } }));
   fs.writeFileSync(path.join(TMP, "gh-output"), "");
   await answer("plan", { GITHUB_EVENT_NAME: "repository_dispatch", GITHUB_EVENT_PATH: eventPath });
   assert.match(fs.readFileSync(path.join(TMP, "gh-output"), "utf8"), /has_jobs=false/);
@@ -202,4 +214,97 @@ test("без секретов резерв спокойно выходит, а �
   assert.match(stdout, /не настроен/);
   assert.match(fs.readFileSync(path.join(TMP, "gh-output"), "utf8"), /has_jobs=false/);
   assert.equal(mock.calls.length, 0);
+});
+
+// ---------- продовження проєкту: Жорик пушить роботу сам, облако бере гілку з «GitHub» (тут — локальний bare-репозиторій) ----------
+
+test("хук: проєкт у теці сесії передається один раз на коміт, без вмісту", async () => {
+  const work = path.join(TMP, "work");
+  fs.mkdirSync(work);
+  await run("git", ["init", "-q", "-b", "main", work]);
+  await git(work, "remote", "add", "origin", "https://github.com/o/proj.git");
+  fs.writeFileSync(path.join(work, "NEXT.md"), "далі: крок 1\n");
+  await git(work, "add", "-A");
+  await git(work, "commit", "-q", "-m", "init");
+  const transcript = path.join(TMP, "t2.jsonl");
+  fs.writeFileSync(transcript, JSON.stringify({ type: "user", message: { role: "user", content: "зроби кабінет" } }));
+
+  mock.calls = [];
+  await hook(transcript, work);
+  let d = mock.calls.filter((c) => c.url === "/repos/o/r/dispatches");
+  assert.equal(d.length, 1);
+  assert.deepEqual(d[0].body.client_payload.project, { repo: "o/proj", branch: "main" });
+  assert.deepEqual(d[0].body.client_payload.jobs, []);
+  assert.ok(!JSON.stringify(d[0].body).includes("зроби кабінет"), "текст розмови не передається");
+
+  mock.calls = [];
+  await hook(transcript, work);
+  assert.equal(mock.calls.length, 0, "той самий коміт вдруге не передається");
+
+  fs.writeFileSync(path.join(work, "NEXT.md"), "далі: крок 2\n");
+  await git(work, "commit", "-q", "-am", "крок 1");
+  mock.calls = [];
+  await hook(transcript, work);
+  d = mock.calls.filter((c) => c.url === "/repos/o/r/dispatches");
+  assert.equal(d.length, 1, "новий коміт — нова передача");
+});
+
+test("продовження: облако бере гілку, працює в zhorik/cloud, секрети не комітить, звітує в Telegram", async () => {
+  const remotes = path.join(TMP, "remotes");
+  const bare = path.join(remotes, "o", "proj.git");
+  fs.mkdirSync(path.dirname(bare), { recursive: true });
+  await run("git", ["init", "-q", "--bare", "-b", "main", bare]);
+  const seed = path.join(TMP, "seed");
+  await run("git", ["clone", "-q", bare, seed]);
+  fs.writeFileSync(path.join(seed, "NEXT.md"), "далі: крок 1\n");
+  await git(seed, "add", "-A");
+  await git(seed, "commit", "-q", "-m", "init");
+  await git(seed, "push", "-q", "origin", "HEAD:main");
+
+  const eventPath = path.join(TMP, "event-project.json");
+  fs.writeFileSync(eventPath, JSON.stringify({ client_payload: { jobs: [], project: { repo: "o/proj", branch: "main" }, report_chat_id: "42" } }));
+  const env = { GITHUB_EVENT_NAME: "repository_dispatch", GITHUB_EVENT_PATH: eventPath, ZHORIK_GIT_BASE: `file://${remotes}`, ZHORIK_WORK_DIR: path.join(TMP, "wd") };
+  fs.writeFileSync(path.join(TMP, "gh-output"), "");
+  mock.calls = [];
+  await answer("plan", env);
+  assert.match(fs.readFileSync(path.join(TMP, "gh-output"), "utf8"), /has_jobs=true/);
+  await answer("run", env);
+
+  const call = JSON.parse(fs.readFileSync(path.join(TMP, "claude-call.json"), "utf8"));
+  assert.equal(call.dev, true);
+  assert.equal(call.hasTgToken, false);
+  assert.equal(call.hasGitCfg, false);
+  assert.equal(call.hasGhToken, false);
+  const sent = mock.calls.filter((c) => c.url.endsWith("/sendMessage"));
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].body.chat_id, "42");
+  assert.match(sent[0].body.text, /^Зробив крок/);
+
+  const check = path.join(TMP, "check");
+  await run("git", ["clone", "-q", "-b", "zhorik/cloud", bare, check]);
+  assert.equal(fs.readFileSync(path.join(check, "feature.txt"), "utf8"), "крок\n");
+  assert.match(fs.readFileSync(path.join(check, ".zhorik", "CLOUD_LOG.md"), "utf8"), /Зробив крок/);
+  assert.equal(fs.existsSync(path.join(check, ".env")), false, ".env не комітиться");
+  const { stdout: mainHead } = await git(bare, "rev-parse", "main");
+  const { stdout: seedHead } = await git(seed, "rev-parse", "HEAD");
+  assert.equal(mainHead.trim(), seedHead.trim(), "main облако не чіпає");
+
+  // сервер тим часом запушив новий крок у main — облако підтягує його в zhorik/cloud і працює далі
+  fs.writeFileSync(path.join(seed, "server.txt"), "з сервера\n");
+  await git(seed, "add", "-A");
+  await git(seed, "commit", "-q", "-m", "крок сервера");
+  await git(seed, "push", "-q", "origin", "HEAD:main");
+  await answer("plan", env);
+  await answer("run", env);
+  const check2 = path.join(TMP, "check2");
+  await run("git", ["clone", "-q", "-b", "zhorik/cloud", bare, check2]);
+  assert.equal(fs.readFileSync(path.join(check2, "feature.txt"), "utf8"), "крок\nкрок\n");
+  assert.equal(fs.readFileSync(path.join(check2, "server.txt"), "utf8"), "з сервера\n");
+});
+
+test("ZHORIK_CONTINUE=off: проєкт не продовжуємо", async () => {
+  const eventPath = path.join(TMP, "event-project.json");
+  fs.writeFileSync(path.join(TMP, "gh-output"), "");
+  await answer("plan", { GITHUB_EVENT_NAME: "repository_dispatch", GITHUB_EVENT_PATH: eventPath, ZHORIK_CONTINUE: "off" });
+  assert.match(fs.readFileSync(path.join(TMP, "gh-output"), "utf8"), /has_jobs=false/);
 });

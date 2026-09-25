@@ -163,3 +163,32 @@ export function buildPrompt(job) {
   lines.push("", "Напиши відповідь, яку треба надіслати в цей чат. Виведи лише текст відповіді, без пояснень.");
   return lines.join("\n");
 }
+
+// ---------- продолжение проекта: Жорик сам держит работу на GitHub (коммит и push после каждого шага, NEXT.md) ----------
+
+// Владелец/репозиторий из адреса origin: https://github.com/o/r(.git), git@github.com:o/r(.git)
+export function githubRepoFromUrl(url) {
+  const m = String(url ?? "").trim().match(/github\.com[:/]([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/);
+  return m ? `${m[1]}/${m[2]}` : "";
+}
+
+// Файлы, которые облако никогда не коммитит.
+export const isSecretPath = (p) =>
+  /(^|\/)(\.env(\..+)?|\.npmrc|\.netrc|id_(rsa|ed25519|ecdsa)(\.pub)?|credentials(\.json)?|access\.json|.*\.(pem|key|p12|pfx))$/i.test(String(p));
+
+export const commitTitle = (report) =>
+  `Жорик (облако): ${clip((String(report ?? "").split("\n").find((l) => l.trim()) || "продовження роботи").trim(), 70)}`;
+
+// Чат, которому Жорик отчитывается: тот, откуда пришло последнее сообщение Telegram.
+export const lastInboundChat = (scan) => scan.inbound.at(-1)?.chat_id || "";
+
+export function buildContinuePrompt(job, note = "") {
+  const lines = [
+    "[Резервний режим · продовження проєкту] Жорик на сервері зупинився (скінчилися ліміти). Ти — той самий Жорик у хмарі.",
+    "Що робиться і що далі — NEXT.md у корені проєкту; що вже зроблено в хмарі — .zhorik/CLOUD_LOG.md (якщо є).",
+  ];
+  if (note) lines.push("", `Увага: ${note}`);
+  if (job.messages?.length) lines.push("", buildPrompt(job));
+  else lines.push("", "Нових повідомлень немає. Продовж роботу з того місця, де зупинився, і наприкінці напиши короткий звіт для Telegram.");
+  return lines.join("\n");
+}

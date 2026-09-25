@@ -5,7 +5,7 @@
 
 | Что случилось | Кто замечает | Что делает облако |
 |---|---|---|
-| У Claude Code на компьютере кончились лимиты (или сбой API, слетел вход) | хук `StopFailure` → `hooks/handoff.mjs` | получает `repository_dispatch: tg_message` с неотвеченными сообщениями и отвечает |
+| У Claude Code на компьютере кончились лимиты (или сбой API, слетел вход) | хук `StopFailure` → `hooks/handoff.mjs` | получает `repository_dispatch: zhorik_handoff` с неотвеченными сообщениями и проектом; отвечает и продолжает работу в ветке `zhorik/cloud` |
 | Компьютер выключен или бот не запущен | пропал пульс `ZHORIK_HEARTBEAT` (`hooks/heartbeat.mjs`) | раз в 15 минут в рабочее время сам забирает сообщения (`getUpdates`) и отвечает |
 | Компьютер снова на связи | пульс свежий | Telegram не трогает |
 
@@ -33,7 +33,7 @@
    - `TELEGRAM_BOT_TOKEN` — тот же токен, что у плагина (`~/.claude/channels/telegram/.env`);
    - `ANTHROPIC_API_KEY` — ключ из console.anthropic.com, лучше отдельный, с лимитом расходов;
    - `ZHORIK_ALLOWED_CHATS` — id чатов через запятую (те же, что в allowlist плагина `~/.claude/channels/telegram/access.json`).
-3. Там же → **Variables** (необязательно): `ZHORIK_MODEL` (по умолчанию `claude-opus-5`), `ZHORIK_BOT_DIR`,
+3. Там же → **Variables** (необязательно): `ZHORIK_MODEL` (по умолчанию `claude-opus-5-5`), `ZHORIK_BOT_DIR`,
    `ZHORIK_TAKEOVER_AFTER_MIN` (по умолчанию 20), `ZHORIK_CLOUD=off` — выключить резерв.
 4. Fine-grained токен GitHub **только на этот репозиторий**: Contents — Read and write (для `repository_dispatch`),
    Variables — Read and write (для пульса). На компьютере — файл `~/.claude/zhorik-cloud.env`, права 600:
@@ -55,6 +55,6 @@
 
 ## Деньги
 
-- Один ответ ≈ $0.1–0.35 на `claude-opus-5` (в основном системный промпт Claude Code и CLAUDE.md; повторные ответы в течение часа дешевле за счёт кеша).
+- Один ответ ≈ $0.1–0.35 на `claude-opus-5-5` (в основном системный промпт Claude Code и CLAUDE.md; повторные ответы в течение часа дешевле за счёт кеша).
   Дешевле — `ZHORIK_MODEL=claude-sonnet-5`; решает владелец.
 - GitHub Actions в приватном репозитории: бесплатно 2000 минут в месяц; расписание (пн–пт, 12 часов, раз в 15 минут) ≈ 1000 минут, ответы — по 1–2 минуты.
