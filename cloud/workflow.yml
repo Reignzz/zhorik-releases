@@ -1,0 +1,65 @@
+# Облачный резерв Жорика. Шаблон: скопировать в ПРИВАТНЫЙ репозиторий как .github/workflows/zhorik-cloud.yml
+# (в публичном репозитории answer.mjs откажется работать — логи Actions там видны всем).
+#
+# Секреты: TELEGRAM_BOT_TOKEN, ANTHROPIC_API_KEY, ZHORIK_ALLOWED_CHATS (id чатов через запятую).
+# Переменные: ZHORIK_CLOUD (on/off), ZHORIK_MODEL, ZHORIK_BOT_DIR, ZHORIK_TAKEOVER_AFTER_MIN,
+#             ZHORIK_HEARTBEAT (пишет hooks/heartbeat.mjs с компьютера).
+name: zhorik-cloud
+
+on:
+  # компьютер на связи, но Claude Code не ответил (лимит, сбой API) — hooks/handoff.mjs
+  repository_dispatch:
+    types: [tg_message]
+  # компьютер выключен: пн–пт, 05:00–16:59 UTC (≈ 08:00–19:59 по Киеву летом), каждые 15 минут
+  schedule:
+    - cron: "*/15 5-16 * * 1-5"
+  # ручная проверка: dry_run=true — ответ только в журнале, в Telegram не уходит
+  workflow_dispatch:
+    inputs:
+      chat_id:
+        description: "id чата из ZHORIK_ALLOWED_CHATS"
+        required: true
+      text:
+        description: "текст сообщения"
+        required: true
+      dry_run:
+        description: "не отправлять в Telegram, показать ответ в журнале"
+        type: boolean
+        default: true
+
+concurrency:
+  group: zhorik-cloud
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  answer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      ZHORIK_ALLOWED_CHATS: ${{ secrets.ZHORIK_ALLOWED_CHATS }}
+      ZHORIK_CLOUD: ${{ vars.ZHORIK_CLOUD }}
+      ZHORIK_MODEL: ${{ vars.ZHORIK_MODEL }}
+      ZHORIK_BOT_DIR: ${{ vars.ZHORIK_BOT_DIR }}
+      ZHORIK_HEARTBEAT: ${{ vars.ZHORIK_HEARTBEAT }}
+      ZHORIK_TAKEOVER_AFTER_MIN: ${{ vars.ZHORIK_TAKEOVER_AFTER_MIN }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Есть ли на что отвечать
+        id: plan
+        run: node cloud/answer.mjs plan
+      - name: Установить Claude Code
+        if: steps.plan.outputs.has_jobs == 'true'
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Ответить в Telegram
+        if: steps.plan.outputs.has_jobs == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node cloud/answer.mjs run
