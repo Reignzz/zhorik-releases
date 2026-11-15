@@ -6,6 +6,11 @@ on:
       - "beamox-launcher/**"
       - ".github/workflows/beamox-launcher.yml"
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Выложить APK в релиз beamox-launcher"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -81,6 +86,8 @@ jobs:
 
       # Отдельный релиз с тегом "beamox-launcher" — не трогает релизы Жорика (make_latest: false)
       - name: Publish to release "beamox-launcher"
+        # Выпуск только вручную (Actions → Run workflow) или коммитом с [release] в сообщении
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish) || contains(github.event.head_commit.message, '[release]') }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: beamox-launcher
