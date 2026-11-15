@@ -50,6 +50,11 @@ class Prefs(ctx: Context) {
         get() = p.getInt("provHash", 0)
         set(v) = p.edit().putInt("provHash", v).apply()
 
+    /** Набор иконок из Google Play (пакет) или null — стандартные */
+    var iconPack: String?
+        get() = p.getString("iconPack", null)
+        set(v) = p.edit().putString("iconPack", v).apply()
+
     var dashboardUrl: String?
         get() = p.getString("dashUrl", null)
         set(v) = p.edit().putString("dashUrl", v).apply()

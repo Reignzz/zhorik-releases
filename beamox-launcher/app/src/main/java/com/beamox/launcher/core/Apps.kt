@@ -28,16 +28,15 @@ data class AppEntry(
 class AppRepository(private val ctx: Context) {
     private val iconCache = HashMap<String, ImageBitmap>()
 
-    suspend fun load(): List<AppEntry> = withContext(Dispatchers.IO) {
+    suspend fun load(pack: IconPack? = null): List<AppEntry> = withContext(Dispatchers.IO) {
         val pm = ctx.packageManager
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         pm.queryIntentActivities(intent, 0)
             .filter { it.activityInfo.packageName != ctx.packageName }
             .map { ri ->
                 val key = ri.activityInfo.packageName + "/" + ri.activityInfo.name
-                val icon = iconCache.getOrPut(key) {
-                    ri.loadIcon(pm).toSquareBitmap(168).asImageBitmap()
-                }
+                val icon = pack?.icon(ComponentName(ri.activityInfo.packageName, ri.activityInfo.name), 192)
+                    ?: iconCache.getOrPut(key) { ri.loadIcon(pm).toSquareBitmap(168).asImageBitmap() }
                 AppEntry(ri.loadLabel(pm).toString(), ri.activityInfo.packageName, ri.activityInfo.name, icon)
             }
             .distinctBy { it.pkg + it.activity }

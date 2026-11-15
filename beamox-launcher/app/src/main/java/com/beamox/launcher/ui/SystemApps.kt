@@ -165,7 +165,9 @@ private fun PhotosFlower(size: Dp) {
 @Composable
 fun SysCell(s: LauncherState, a: SysApp, label: Boolean = true, size: Dp = 64.dp) {
     Column(Modifier.bounceClick { s.haptic(); s.openSys(a) }, horizontalAlignment = Alignment.CenterHorizontally) {
-        SysIcon(a, size)
+        val packIcon = s.sysIcons[a]
+        if (packIcon != null) androidx.compose.foundation.Image(packIcon, a.title, Modifier.size(size).clip(Squircle))
+        else SysIcon(a, size)
         if (label) IconLabel(a.title)
     }
 }

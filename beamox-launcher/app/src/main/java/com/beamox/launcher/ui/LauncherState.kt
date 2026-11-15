@@ -106,9 +106,29 @@ class LauncherState(
 
     fun reloadConfig() { config = BeamoxConfig.load(ctx) }
 
+    // Набор иконок (iOS-стиль из Google Play)
+    var iconPackPkg by mutableStateOf(prefs.iconPack)
+    var sysIcons by mutableStateOf<Map<SysApp, androidx.compose.ui.graphics.ImageBitmap>>(emptyMap())
+
+    fun setIconPack(pkg: String?) {
+        prefs.iconPack = pkg; iconPackPkg = pkg
+        appsRepo.invalidate(); reloadApps()
+    }
+
     fun reloadApps() = scope.launch {
         if (preview) return@launch
-        apps = appsRepo.load()
+        val pack = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            iconPackPkg?.let { p -> com.beamox.launcher.core.IconPack(ctx, p).takeIf { it.load() } }
+        }
+        apps = appsRepo.load(pack)
+        // Системные разделы (Телефон, Сообщения, Камера…) берут иконку из набора по реальному приложению
+        sysIcons = if (pack == null) emptyMap() else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            SysApp.entries.mapNotNull { a ->
+                val ri = runCatching { ctx.packageManager.resolveActivity(a.intent(), 0) }.getOrNull()
+                    ?.takeIf { it.activityInfo.packageName != "android" } ?: return@mapNotNull null
+                pack.icon(android.content.ComponentName(ri.activityInfo.packageName, ri.activityInfo.name), 192)?.let { a to it }
+            }.toMap()
+        }
         // Первый запуск: сразу прячем рекламный мусор из библиотеки (удалить — в «Очистке»)
         if (!prefs.bloatScanned) {
             val junk = com.beamox.launcher.core.Bloat.detect(ctx, apps).map { it.pkg }.toSet()

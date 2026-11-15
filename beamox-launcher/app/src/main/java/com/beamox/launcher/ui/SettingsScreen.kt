@@ -99,6 +99,7 @@ fun SettingsScreen(s: LauncherState) {
     if (s.cleanupOpen) { CleanupScreen(s); return }
     var edit by remember { mutableStateOf<EditField?>(null) }
     var modelPick by remember { mutableStateOf(false) }
+    var iconPick by remember { mutableStateOf(false) }
     var tick by remember { mutableIntStateOf(0) }
     var status by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
@@ -177,6 +178,8 @@ fun SettingsScreen(s: LauncherState) {
                     RowItem("Жесты как на iPhone", icon = Icons.Rounded.Swipe, iconColor = cBlue, onClick = {
                         if (!start(Intent("android.settings.GESTURES_SETTINGS"))) start(Intent(Settings.ACTION_SETTINGS))
                     })
+                    RowItem("Значки", trailing = s.iconPackPkg?.let { p -> com.beamox.launcher.core.IconPack.installed(s.ctx).firstOrNull { it.pkg == p }?.label } ?: "Beamox",
+                        icon = Icons.Rounded.Apps, iconColor = cBlue, onClick = { iconPick = true })
                     RowItem("Обои", icon = Icons.Rounded.Wallpaper, iconColor = cTeal, onClick = {
                         s.scope.launch {
                             status = BeamoxWallpaper.apply(s.ctx, s.config.company, s.config.tagline)
@@ -293,6 +296,33 @@ fun SettingsScreen(s: LauncherState) {
             },
             confirmButton = { TextButton({ f.onSave(v); edit = null; status = "Сохранено" }) { Text("Сохранить", color = B.Coral, fontWeight = FontWeight.ExtraBold) } },
             dismissButton = { TextButton({ edit = null }) { Text("Отмена", color = B.Dim) } },
+        )
+    }
+    if (iconPick) {
+        val packs = remember { com.beamox.launcher.core.IconPack.installed(s.ctx) }
+        AlertDialog(
+            onDismissRequest = { iconPick = false },
+            containerColor = Color(0xFF2C2C2E),
+            title = { Text("Значки", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text((if (s.iconPackPkg == null) "✓ " else "   ") + "Стандартные Beamox", fontSize = 17.sp,
+                        modifier = Modifier.fillMaxWidth().clickableNoRipple { s.setIconPack(null); iconPick = false }.padding(vertical = 12.dp))
+                    packs.forEach { p ->
+                        Text((if (p.pkg == s.iconPackPkg) "✓ " else "   ") + p.label, fontSize = 17.sp,
+                            modifier = Modifier.fillMaxWidth().clickableNoRipple { s.setIconPack(p.pkg); iconPick = false }.padding(vertical = 12.dp))
+                    }
+                    if (packs.isEmpty()) Text("Наборов не найдено. Установите любой набор иконок в стиле iOS из Google Play — он появится здесь.",
+                        color = Color(0x99EBEBF5), fontSize = 14.sp, modifier = Modifier.padding(vertical = 8.dp))
+                    Text("Найти наборы iOS в Google Play", color = B.Accent, fontSize = 17.sp,
+                        modifier = Modifier.fillMaxWidth().clickableNoRipple {
+                            iconPick = false
+                            if (!AppRepository.safeStart(s.act, Intent(Intent.ACTION_VIEW, Uri.parse("market://search?q=iOS%2026%20icon%20pack&c=apps"))))
+                                s.openUrl("https://play.google.com/store/search?q=iOS%2026%20icon%20pack&c=apps")
+                        }.padding(vertical = 12.dp))
+                }
+            },
+            confirmButton = { TextButton({ iconPick = false }) { Text("Готово", color = B.Accent) } },
         )
     }
     if (modelPick) {
