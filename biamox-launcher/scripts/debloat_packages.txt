@@ -1,0 +1,70 @@
+# Пакеты, которые удаляются с Moto G57 для текущего пользователя (pm uninstall --user 0).
+# Это НЕ удаление из прошивки: всё возвращается командой restore.sh или сбросом настроек.
+# Строку можно закомментировать символом # — тогда приложение останется.
+
+# --- Рекламные «установщики» и сборщики рекламы (главная причина спама и тормозов)
+com.dti.motorola
+com.digitalturbine.ignite
+com.digitalturbine.toolbar
+com.ironsource.appcloud.oobe.motorola
+com.aura.oobe.motorola
+com.aura.oobe.deutsche
+com.motorola.appdirectedsmspermission
+com.motorola.ccc.notification
+com.motorola.brapps
+com.motorola.genie
+com.motorola.help
+com.motorola.discovery
+com.motorola.mototour
+com.motorola.demo
+com.motorola.demo.env
+com.motorola.paks
+com.motorola.livewallpaper3
+com.motorola.dynamicvolume
+com.motorola.android.fmradio
+com.motorola.fmplayer
+com.motorola.spaces
+com.motorola.smartstreams
+com.facebook.system
+com.facebook.appmanager
+com.facebook.services
+# com.facebook.katana   # оставлено: соцсеть компании
+# com.facebook.orca   # оставлено: мессенджер
+com.amazon.mShop.android.shopping
+com.amazon.appmanager
+com.amazon.avod.thirdpartyclient
+com.netflix.mediaclient
+com.netflix.partner.activation
+com.booking
+com.einnovation.temu
+com.alibaba.aliexpresshd
+com.shein.android
+# com.zhiliaoapp.musically   # оставлено: соцсеть компании
+# com.ss.android.ugc.trill   # оставлено: TikTok
+com.king.candycrushsaga
+com.king.candycrushsodasaga
+com.block.juggle
+com.tripadvisor.tripadvisor
+in.playsimple.wordtrip
+com.playstrom.dop2
+com.candy.solitaire.go
+# com.spotify.music   # оставлено: музыка — по желанию
+# com.linkedin.android   # оставлено: соцсеть компании
+# com.microsoft.office.outlook   # оставлено: почта — по желанию
+com.tiktok.lite.go
+
+# --- Лишние сервисы Google (рабочему телефону не нужны)
+com.google.android.apps.youtube.music
+com.google.android.videos
+com.google.android.apps.tachyon
+com.google.android.apps.subscriptions.red
+com.google.android.apps.podcasts
+com.google.android.apps.magazines
+com.google.android.apps.googleassistant
+com.google.android.apps.chromecast.app
+com.google.android.apps.walletnfcrel
+com.google.android.apps.kids.home
+com.google.android.apps.restore
+com.google.ar.lens
+com.google.android.feedback
+com.google.android.marvin.talkback.setupwizard

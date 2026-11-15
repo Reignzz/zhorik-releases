@@ -1,0 +1,91 @@
+name: Biamox Launcher APK
+
+on:
+  push:
+    paths:
+      - "biamox-launcher/**"
+      - ".github/workflows/biamox-launcher.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: biamox-launcher
+    env:
+      VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Signing key from secrets (optional)
+        env:
+          KS_B64: ${{ secrets.BIAMOX_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/biamox.jks"
+            echo "BIAMOX_KEYSTORE_FILE=$RUNNER_TEMP/biamox.jks" >> "$GITHUB_ENV"
+            echo "Подпись: приватный ключ из секретов"
+          else
+            echo "::warning::BIAMOX_KEYSTORE_B64 не задан — APK подписан тестовым ключом из репозитория"
+          fi
+
+      - name: Build APK
+        env:
+          BIAMOX_KEYSTORE_PASSWORD: ${{ secrets.BIAMOX_KEYSTORE_PASSWORD }}
+          BIAMOX_KEY_ALIAS: ${{ secrets.BIAMOX_KEY_ALIAS }}
+          BIAMOX_KEY_PASSWORD: ${{ secrets.BIAMOX_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease lintRelease
+          # Проверка подписи и содержимого APK
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$BT/apksigner" verify --print-certs app/build/outputs/apk/release/app-release.apk | head -5
+
+      - name: Prepare release files
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk out/BiamoxLauncher.apk
+          cat > out/version.json <<JSON
+          {"versionCode": ${VERSION_CODE}, "versionName": "1.0.${VERSION_CODE}",
+           "apkUrl": "https://github.com/${{ github.repository }}/releases/download/biamox-launcher/BiamoxLauncher.apk"}
+          JSON
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BiamoxLauncher
+          path: biamox-launcher/out/*
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-report
+          path: biamox-launcher/app/build/reports/lint-results-release.html
+
+      # Отдельный релиз с тегом "biamox-launcher" — не трогает релизы Жорика (make_latest: false)
+      - name: Publish to release "biamox-launcher"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: biamox-launcher
+          name: Biamox Launcher
+          body: |
+            Лаунчер Biamox для Moto G57. Установка с Mac: `biamox-launcher/scripts/mac/install.sh`.
+            Сборка ${{ github.run_number }} · ${{ github.sha }}
+          target_commitish: ${{ github.sha }}
+          make_latest: "false"
+          files: |
+            biamox-launcher/out/BiamoxLauncher.apk
+            biamox-launcher/out/version.json

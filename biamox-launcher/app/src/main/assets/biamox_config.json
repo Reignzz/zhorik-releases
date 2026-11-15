@@ -1,0 +1,136 @@
+{
+  "company": "Biamox",
+  "tagline": "Офис в кармане",
+  "wakeWords": [
+    "привет биамокс",
+    "биамокс",
+    "биомакс",
+    "биамакс",
+    "би амокс",
+    "эй клод",
+    "привет клод"
+  ],
+  "claude": {
+    "model": "claude-opus-5-5",
+    "systemExtra": "Ты — рабочий ассистент компании Biamox. Отвечай по-русски, кратко и по делу."
+  },
+  "stats": {
+    "url": "",
+    "refreshMinutes": 5
+  },
+  "studio": {
+    "url": ""
+  },
+  "mailboxes": [
+    {
+      "name": "Основная",
+      "address": "info@biamox.com",
+      "imapHost": "imap.gmail.com",
+      "imapPort": 993,
+      "webUrl": "https://mail.google.com/"
+    },
+    {
+      "name": "Продажи",
+      "address": "sales@biamox.com",
+      "imapHost": "imap.gmail.com",
+      "imapPort": 993,
+      "webUrl": "https://mail.google.com/"
+    },
+    {
+      "name": "Поддержка",
+      "address": "support@biamox.com",
+      "imapHost": "imap.gmail.com",
+      "imapPort": 993,
+      "webUrl": "https://mail.google.com/"
+    }
+  ],
+  "team": [
+    {
+      "name": "Директор",
+      "role": "Руководство",
+      "phone": "",
+      "email": "info@biamox.com"
+    },
+    {
+      "name": "Отдел продаж",
+      "role": "Продажи",
+      "phone": "",
+      "email": "sales@biamox.com"
+    },
+    {
+      "name": "Видео-студия",
+      "role": "Контент",
+      "phone": "",
+      "email": ""
+    }
+  ],
+  "links": [
+    {
+      "title": "Сайт Biamox",
+      "emoji": "🌐",
+      "url": "https://biamox.com"
+    },
+    {
+      "title": "Google Диск",
+      "emoji": "📁",
+      "url": "https://drive.google.com"
+    },
+    {
+      "title": "Календарь",
+      "emoji": "📅",
+      "url": "https://calendar.google.com"
+    }
+  ],
+  "homeApps": [
+    "com.google.android.gm",
+    "com.android.chrome",
+    "org.telegram.messenger",
+    "com.whatsapp",
+    "com.viber.voip",
+    "com.google.android.apps.docs",
+    "com.google.android.calendar",
+    "com.google.android.apps.photos",
+    "com.motorola.camera3",
+    "com.google.android.apps.maps",
+    "com.google.android.youtube",
+    "com.android.vending"
+  ],
+  "socials": [
+    {
+      "title": "Instagram",
+      "emoji": "📸",
+      "url": "https://instagram.com/biamox",
+      "pkg": "com.instagram.android"
+    },
+    {
+      "title": "TikTok",
+      "emoji": "🎵",
+      "url": "https://www.tiktok.com/@biamox",
+      "pkg": "com.zhiliaoapp.musically"
+    },
+    {
+      "title": "YouTube",
+      "emoji": "▶️",
+      "url": "https://youtube.com/@biamox",
+      "pkg": "com.google.android.youtube"
+    },
+    {
+      "title": "Facebook",
+      "emoji": "📘",
+      "url": "https://facebook.com/biamox",
+      "pkg": "com.facebook.katana"
+    },
+    {
+      "title": "Telegram",
+      "emoji": "✈️",
+      "url": "https://t.me/biamox",
+      "pkg": "org.telegram.messenger"
+    },
+    {
+      "title": "LinkedIn",
+      "emoji": "💼",
+      "url": "https://linkedin.com/company/biamox",
+      "pkg": "com.linkedin.android"
+    }
+  ]
+}
