@@ -1,0 +1,91 @@
+name: Beamox Launcher APK
+
+on:
+  push:
+    paths:
+      - "beamox-launcher/**"
+      - ".github/workflows/beamox-launcher.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: beamox-launcher
+    env:
+      VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Signing key from secrets (optional)
+        env:
+          KS_B64: ${{ secrets.BEAMOX_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/beamox.jks"
+            echo "BEAMOX_KEYSTORE_FILE=$RUNNER_TEMP/beamox.jks" >> "$GITHUB_ENV"
+            echo "Подпись: приватный ключ из секретов"
+          else
+            echo "::warning::BEAMOX_KEYSTORE_B64 не задан — APK подписан тестовым ключом из репозитория"
+          fi
+
+      - name: Build APK
+        env:
+          BEAMOX_KEYSTORE_PASSWORD: ${{ secrets.BEAMOX_KEYSTORE_PASSWORD }}
+          BEAMOX_KEY_ALIAS: ${{ secrets.BEAMOX_KEY_ALIAS }}
+          BEAMOX_KEY_PASSWORD: ${{ secrets.BEAMOX_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease lintRelease
+          # Проверка подписи и содержимого APK
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$BT/apksigner" verify --print-certs app/build/outputs/apk/release/app-release.apk | head -5
+
+      - name: Prepare release files
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk out/BeamoxLauncher.apk
+          cat > out/version.json <<JSON
+          {"versionCode": ${VERSION_CODE}, "versionName": "1.0.${VERSION_CODE}",
+           "apkUrl": "https://github.com/${{ github.repository }}/releases/download/beamox-launcher/BeamoxLauncher.apk"}
+          JSON
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BeamoxLauncher
+          path: beamox-launcher/out/*
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-report
+          path: beamox-launcher/app/build/reports/lint-results-release.html
+
+      # Отдельный релиз с тегом "beamox-launcher" — не трогает релизы Жорика (make_latest: false)
+      - name: Publish to release "beamox-launcher"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: beamox-launcher
+          name: Beamox Launcher
+          body: |
+            Лаунчер Beamox для Moto G57. Установка с Mac: `beamox-launcher/scripts/mac/install.sh`.
+            Сборка ${{ github.run_number }} · ${{ github.sha }}
+          target_commitish: ${{ github.sha }}
+          make_latest: "false"
+          files: |
+            beamox-launcher/out/BeamoxLauncher.apk
+            beamox-launcher/out/version.json
