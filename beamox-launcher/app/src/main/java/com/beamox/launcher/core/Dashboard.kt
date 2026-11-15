@@ -3,7 +3,9 @@ package com.beamox.launcher.core
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -28,6 +30,9 @@ data class Platform(
 data class TopVideo(val title: String, val platform: String, val views: Int, val likes: Int, val er: Double?, val url: String)
 data class StudioEvent(val at: Long, val ok: Boolean, val text: String)
 data class Service(val name: String, val active: Boolean)
+/** Проекты владельца (сессии/проекты на Mac): «Офис Beamox», «GTA 6 контент-конвейер» и т.д. */
+data class Project(val name: String, val status: String, val summary: String, val updated: Long)
+data class PanelTask(val id: String, val text: String, val project: String, val done: Boolean, val due: Long?)
 
 data class Dashboard(
     val at: Long,
@@ -49,6 +54,8 @@ data class Dashboard(
     // Машины
     val macOnline: Boolean, val macRamUsed: Double?, val macRamLimit: Double?, val macBattery: Int?, val macCpu: Int?,
     val serverOnline: Boolean, val serverDiskPct: Int?, val services: List<Service>,
+    val projects: List<Project> = emptyList(),
+    val tasks: List<PanelTask> = emptyList(),
 ) {
     val working get() = sessions.count { it.state == "working" }
     val waiting get() = sessions.filter { it.state == "waiting" }
@@ -63,7 +70,10 @@ data class Dashboard(
         if (top.isNotEmpty()) append("Лучшие ролики: " + top.take(3).joinToString { "«${it.title}» ${it.views} просм." } + ". ")
         append("Claude: ${sessions.size} сессий, работают $working, ждут подтверждения ${waiting.size}. ")
         weekPct?.let { append("Лимит недели ${it.toInt()}%, 5 часов ${fivePct?.toInt() ?: 0}%. ") }
-        append("Сервисы сервера: " + services.joinToString { "${it.name} ${if (it.active) "работает" else "остановлен"}" } + ".")
+        append("Сервисы сервера: " + services.joinToString { "${it.name} ${if (it.active) "работает" else "остановлен"}" } + ". ")
+        if (projects.isNotEmpty()) append("Проекты: " + projects.joinToString { "${it.name} (${it.status}): ${it.summary}" } + ". ")
+        val open = tasks.filter { !it.done }
+        if (open.isNotEmpty()) append("Задачи офиса: " + open.take(20).joinToString { "${it.text} [${it.project}]" } + ".")
     }
 
     /** Переводим в KPI-формат лаунчера (виджеты, голос «какой охват») */
@@ -178,6 +188,12 @@ data class Dashboard(
                 macBattery = mac?.optJSONObject("battery")?.intOrNull("pct"), macCpu = mac?.intOrNull("cpu"),
                 serverOnline = srv != null, serverDiskPct = srv?.optJSONObject("disk")?.intOrNull("usedPct"),
                 services = srv?.optJSONArray("services").objs().map { Service(it.optString("name"), it.optString("state") == "active") },
+                projects = o.optJSONArray("projects").objs().map {
+                    Project(it.optString("name"), it.optString("status", "idle"), it.optString("summary"), it.optLong("updated"))
+                },
+                tasks = o.optJSONArray("tasks").objs().map {
+                    PanelTask(it.optString("id"), it.optString("text"), it.optString("project"), it.optBoolean("done"), it.longOrNull("due"))
+                },
             )
         }
 
@@ -189,6 +205,18 @@ data class Dashboard(
         }
 
         private val http = OkHttpClient.Builder().callTimeout(15, TimeUnit.SECONDS).build()
+
+        /** Поставить задачу в офис Beamox: POST <база панели>/task {"text","project"} (+ Bearer-токен) */
+        suspend fun postTask(panelUrl: String, token: String, text: String, project: String): Result<Unit> = withContext(Dispatchers.IO) {
+            runCatching {
+                val base = dataUrl(panelUrl).substringBeforeLast("/")
+                val body = JSONObject().put("text", text).put("project", project).toString()
+                    .toRequestBody("application/json".toMediaType())
+                val rb = Request.Builder().url("$base/task").post(body)
+                if (token.isNotBlank()) rb.header("Authorization", "Bearer $token")
+                http.newCall(rb.build()).execute().use { r -> if (!r.isSuccessful) error("HTTP ${r.code}") }
+            }
+        }
 
         suspend fun fetch(url: String): Result<Pair<Dashboard, String>> = withContext(Dispatchers.IO) {
             runCatching {

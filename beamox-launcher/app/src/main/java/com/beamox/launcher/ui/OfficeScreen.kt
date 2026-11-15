@@ -2,6 +2,9 @@ package com.beamox.launcher.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,8 +43,28 @@ fun OfficeScreen(s: LauncherState) {
                     OfficeTile(Modifier.weight(1f), Module.CLAUDE, "Ассистент") { s.open(Module.CLAUDE) }
                 }
             }
+            s.dash?.takeIf { it.projects.isNotEmpty() }?.let { d ->
+                item {
+                    SectionTitle("Проекты")
+                    Group {
+                        d.projects.forEach { p ->
+                            val col = when (p.status) { "working" -> B.Green; "waiting" -> B.Amber; "done" -> B.Accent; else -> B.Faint }
+                            RowItem(p.name, p.summary.ifBlank { null }, end = {
+                                androidx.compose.foundation.layout.Box(Modifier.padding(start = 8.dp).size(10.dp)
+                                    .clip(androidx.compose.foundation.shape.CircleShape).background(col))
+                            })
+                        }
+                    }
+                }
+            }
+            s.dash?.takeIf { it.tasks.any { t -> !t.done } }?.let { d ->
+                item {
+                    SectionTitle("Задачи офиса")
+                    Group { d.tasks.filter { !it.done }.take(30).forEach { t -> RowItem(t.text, t.project.ifBlank { null }) } }
+                }
+            }
             item {
-                SectionTitle("Задачи")
+                SectionTitle("Мои задачи")
                 Group {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
                         OutlinedTextField(newTask, { newTask = it }, placeholder = { Text("Новая задача…") },

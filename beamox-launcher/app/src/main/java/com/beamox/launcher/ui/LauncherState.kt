@@ -200,8 +200,15 @@ class LauncherState(
     val unreadTotal: Int? get() = mailStatus.mapNotNull { it.unread }.takeIf { it.isNotEmpty() }?.sum()
 
     // ---------- Задачи ----------
-    fun addTask(text: String) {
+    fun addTask(text: String, project: String = "Офис Beamox") {
         tasks.add(0, OfficeTask(System.currentTimeMillis(), text, false)); Tasks.save(prefs, tasks)
+        // Если панель подключена — задача уходит в офис Beamox на Mac/сервер
+        val url = prefs.dashboardUrl
+        if (!preview && !url.isNullOrBlank()) scope.launch {
+            Dashboard.postTask(url, secrets.statsToken, text, project)
+                .onSuccess { toast("Задача поставлена в офис Beamox") }
+                .onFailure { toast("Задача сохранена на телефоне (офис пока не принимает задачи)") }
+        }
     }
     fun toggleTask(t: OfficeTask) {
         val i = tasks.indexOfFirst { it.id == t.id }
