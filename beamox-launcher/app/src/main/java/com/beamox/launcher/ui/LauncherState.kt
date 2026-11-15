@@ -142,7 +142,37 @@ class LauncherState(
     fun open(m: Module) {
         searchOpen = false
         haptic()
-        if (m == Module.VOICE) startVoice() else screen = m
+        when {
+            m == Module.VOICE -> startVoice()
+            m == Module.CLAUDE && useClaudeApp() -> openClaudeApp(claudeDraft.takeIf { it.isNotBlank() }?.let { withBeamoxData(it) }).also { claudeDraft = "" }
+            else -> screen = m
+        }
+    }
+
+    // ---------- Claude через официальное приложение (аккаунт claude.ai) ----------
+    val claudePkg = "com.anthropic.claude"
+    var claudeViaApp by mutableStateOf(prefs.claudeViaApp)
+    fun claudeAppInstalled() = runCatching { ctx.packageManager.getPackageInfo(claudePkg, 0); true }.getOrDefault(false)
+    fun useClaudeApp() = claudeViaApp && (preview || claudeAppInstalled() || secrets.claudeKey.isBlank())
+
+    /** Вопрос + живые данные Beamox с телефона, чтобы Claude в вашем аккаунте отвечал по делу */
+    fun withBeamoxData(q: String) = q + "\n\n— Данные Beamox с рабочего телефона:\n" + officeContext()
+
+    /** Открыть Claude под вашим аккаунтом; если передан текст — он сразу вставится в новый чат */
+    fun openClaudeApp(text: String? = null) {
+        if (preview) return
+        if (!claudeAppInstalled()) {
+            toast("Установите приложение Claude и войдите в свой аккаунт")
+            if (!AppRepository.safeStart(act, Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$claudePkg"))))
+                openUrl("https://play.google.com/store/apps/details?id=$claudePkg")
+            return
+        }
+        if (!text.isNullOrBlank()) {
+            val send = Intent(Intent.ACTION_SEND).setType("text/plain").setPackage(claudePkg).putExtra(Intent.EXTRA_TEXT, text)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (runCatching { act.startActivity(send); true }.getOrDefault(false)) return
+        }
+        appsRepo.launchPackage(claudePkg)
     }
 
     fun launch(app: AppEntry) { searchOpen = false; haptic(); appsRepo.launch(app) }
@@ -348,7 +378,9 @@ class LauncherState(
                     composeMail(subj, body)
                 }
             }
-            is VoiceAction.AskClaude -> {
+            is VoiceAction.AskClaude -> if (useClaudeApp()) {
+                closeVoice(); openClaudeApp(withBeamoxData(a.text))
+            } else {
                 voiceAnswer = "Думаю…"
                 sendClaude(a.text + "\n\n(Вопрос задан голосом — ответь коротко, 1–4 предложения, без форматирования.)") { ans ->
                     say(ans)

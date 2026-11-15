@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.AirplanemodeActive
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material.icons.rounded.Bluetooth
@@ -215,7 +216,11 @@ fun SettingsScreen(s: LauncherState) {
                     })
                     RowItem("Ассистент по умолчанию", icon = Icons.Rounded.SmartToy, iconColor = cIndigo,
                         onClick = { start(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) })
-                    RowItem("Ключ Claude", trailing = mask(s.secrets.claudeKey), icon = Icons.Rounded.Key, iconColor = B.Coral, onClick = {
+                    RowItem("Claude — мой аккаунт", if (s.claudeAppInstalled()) "Через приложение Claude" else "Установите приложение Claude",
+                        icon = Icons.Rounded.Person, iconColor = B.Coral, end = {
+                            IosSwitch(s.claudeViaApp) { s.claudeViaApp = it; s.prefs.claudeViaApp = it }
+                        })
+                    RowItem("Ключ API (запасной)", trailing = mask(s.secrets.claudeKey), icon = Icons.Rounded.Key, iconColor = B.Coral, onClick = {
                         edit = EditField("Ключ Claude API (sk-ant-…)", "", true) { s.secrets.claudeKey = it; tick++ }
                     })
                     RowItem("Модель", trailing = ClaudeModels.all.firstOrNull { it.first == s.claudeModel() }?.second?.substringBefore(" —") ?: s.claudeModel(),

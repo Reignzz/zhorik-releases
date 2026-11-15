@@ -38,6 +38,11 @@ class Prefs(ctx: Context) {
         get() = p.getBoolean("handsFree", false)
         set(v) = p.edit().putBoolean("handsFree", v).apply()
 
+    /** Claude через официальное приложение (ваш аккаунт claude.ai) — по умолчанию; false — встроенный чат по ключу API */
+    var claudeViaApp: Boolean
+        get() = p.getBoolean("claudeViaApp", true)
+        set(v) = p.edit().putBoolean("claudeViaApp", v).apply()
+
     var speakAnswers: Boolean
         get() = p.getBoolean("speakAnswers", true)
         set(v) = p.edit().putBoolean("speakAnswers", v).apply()
