@@ -22,7 +22,7 @@ import java.io.File
  * (install.sh делает это из scripts/mac/brand/lockscreen.png) — будет использована она.
  */
 object BeamoxWallpaper {
-    const val VERSION = 1
+    const val VERSION = 2
 
     suspend fun apply(ctx: Context, company: String, tagline: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
@@ -46,58 +46,40 @@ object BeamoxWallpaper {
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val p = Paint(Paint.ANTI_ALIAS_FLAG)
-
-        // Глубокий фон «как в iOS»: тёмно-синий → фиолетовый → синий
-        p.shader = LinearGradient(0f, 0f, w.toFloat(), h.toFloat(),
-            intArrayOf(Color.parseColor("#070B1C"), Color.parseColor("#1A1450"), Color.parseColor("#0E2A6B")),
+        // Фон панели Beamox: тёплый тёмный градиент
+        p.shader = LinearGradient(0f, 0f, 0f, h.toFloat(),
+            intArrayOf(Color.parseColor("#1E1624"), Color.parseColor("#120F17"), Color.parseColor("#0E0F13")),
             floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), p)
-
-        // Мягкие световые пятна
         fun glow(x: Float, y: Float, r: Float, color: String) {
             p.shader = RadialGradient(x, y, r, Color.parseColor(color), Color.TRANSPARENT, Shader.TileMode.CLAMP)
-            c.drawCircle(x, y, r, p)
+            c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), p)
         }
-        glow(w * 0.15f, h * 0.22f, w * 0.85f, "#995B3FD9")
-        glow(w * 0.95f, h * 0.62f, w * 0.9f, "#992F80FF")
-        glow(w * 0.4f, h * 1.02f, w * 0.8f, "#8834C7A5")
+        glow(w * 1.0f, 0f, w * 1.25f, "#5CFF7A50")      // коралл справа сверху
+        glow(0f, h * 1.0f, w * 1.1f, "#3DFF3D7F")         // розовый слева снизу
+        glow(w * 0.2f, h * 0.45f, w * 0.7f, "#1F8B7BFF")  // лёгкий фиолет
         p.shader = null
-
         if (big) {
-            // Логотип-знак: скруглённый квадрат с «B»
-            val s = w * 0.26f
-            val cx = w / 2f
-            val top = h * 0.56f
-            val rect = RectF(cx - s / 2, top, cx + s / 2, top + s)
-            p.color = Color.argb(46, 255, 255, 255)
-            c.drawRoundRect(rect, s * 0.24f, s * 0.24f, p)
-            p.style = Paint.Style.STROKE; p.strokeWidth = w * 0.004f; p.color = Color.argb(90, 255, 255, 255)
-            c.drawRoundRect(rect, s * 0.24f, s * 0.24f, p)
-            p.style = Paint.Style.FILL
-            p.color = Color.WHITE
-            p.typeface = Typeface.create("sans-serif", Typeface.BOLD)
-            p.textAlign = Paint.Align.CENTER
-            p.textSize = s * 0.62f
-            c.drawText("B", cx, top + s * 0.72f, p)
-
-            // Надпись BEAMOX
-            p.textSize = w * 0.13f
-            p.letterSpacing = 0.18f
-            p.typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
-            c.drawText(company.uppercase(), cx, top + s + w * 0.17f, p)
-            if (tagline.isNotBlank()) {
-                p.textSize = w * 0.038f
-                p.letterSpacing = 0.3f
-                p.color = Color.argb(170, 255, 255, 255)
-                c.drawText(tagline.uppercase(), cx, top + s + w * 0.245f, p)
+            // Знак-лучи и надпись BEAMOX в нижней трети (часы Android остаются сверху)
+            val cx = w / 2f; val cy = h * 0.70f; val s = w * 0.0042f
+            p.color = Color.parseColor("#E8794F"); p.strokeCap = Paint.Cap.ROUND; p.strokeWidth = 4f * s
+            for (k in 0 until 12) {
+                val a = Math.PI / 6 * k + .13; val r1 = 4.5f * s; val r2 = (if (k % 2 == 1) 15f else 18f) * s
+                c.drawLine(cx + r1 * Math.cos(a).toFloat(), cy + r1 * Math.sin(a).toFloat(),
+                    cx + r2 * Math.cos(a).toFloat(), cy + r2 * Math.sin(a).toFloat(), p)
             }
-        } else {
-            p.color = Color.argb(28, 255, 255, 255)
-            p.typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+            c.drawCircle(cx, cy, 5f * s, p)
+            p.color = Color.parseColor("#F6F3ED")
+            p.typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
             p.textAlign = Paint.Align.CENTER
-            p.textSize = w * 0.2f
-            p.letterSpacing = 0.2f
-            c.drawText(company.uppercase(), w / 2f, h * 0.62f, p)
+            p.textSize = w * 0.075f
+            p.letterSpacing = 0.32f
+            c.drawText(company.uppercase(), cx, cy + w * 0.17f, p)
+            if (tagline.isNotBlank()) {
+                p.textSize = w * 0.032f; p.letterSpacing = 0.25f; p.color = Color.parseColor("#8F8B85")
+                p.typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+                c.drawText(tagline.uppercase(), cx, cy + w * 0.225f, p)
+            }
         }
         return bmp
     }

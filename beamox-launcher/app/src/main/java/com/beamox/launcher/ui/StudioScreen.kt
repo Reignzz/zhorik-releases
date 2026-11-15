@@ -102,8 +102,8 @@ fun StudioScreen(s: LauncherState) {
                             // Камера/микрофон — только для сайта студии, остальным отказ
                             val studioHost = Uri.parse(url).host
                             if (studioHost != null && request.origin?.host == studioHost) {
-                                ActivityCompat.requestPermissions(s.activity,
-                                    arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 78)
+                                s.activity?.let { a -> ActivityCompat.requestPermissions(a,
+                                    arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 78) }
                                 request.grant(request.resources.filter {
                                     it == PermissionRequest.RESOURCE_VIDEO_CAPTURE || it == PermissionRequest.RESOURCE_AUDIO_CAPTURE
                                 }.toTypedArray())
@@ -139,10 +139,10 @@ private fun StudioSetup(s: LauncherState) {
             SectionTitle("Быстрые действия")
             Group {
                 RowItem("Снять ролик", "Камера в режиме видео", emoji = "🎥", onClick = {
-                    AppRepository.safeStart(s.activity, Intent(MediaStore.INTENT_ACTION_VIDEO_CAMERA))
+                    AppRepository.safeStart(s.act, Intent(MediaStore.INTENT_ACTION_VIDEO_CAMERA))
                 })
                 RowItem("Мои видео", "Галерея", emoji = "🖼", onClick = {
-                    AppRepository.safeStart(s.activity, Intent(Intent.ACTION_VIEW, MediaStore.Video.Media.EXTERNAL_CONTENT_URI))
+                    AppRepository.safeStart(s.act, Intent(Intent.ACTION_VIEW, MediaStore.Video.Media.EXTERNAL_CONTENT_URI))
                 })
                 RowItem("Идеи для роликов от Claude", emoji = "✳️", onClick = {
                     s.claudeDraft = "Предложи 5 идей коротких роликов для соцсетей Beamox: хук, сценарий на 30 сек, призыв к действию."

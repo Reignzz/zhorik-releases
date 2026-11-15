@@ -26,6 +26,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -71,25 +73,26 @@ fun ClaudeScreen(s: LauncherState) {
         }
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            QUICK_PROMPTS.forEach { (label, prompt) -> Pill(label, B.Violet) { s.sendClaude(prompt) } }
+            QUICK_PROMPTS.forEach { (label, prompt) -> Pill(label, B.Coral) { s.sendClaude(prompt) } }
         }
         Row(Modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(10.dp),
             verticalAlignment = Alignment.Bottom) {
-            Box(Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(Color(0xFF1C1F33))
+            Box(Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(Color(0xFF2C2530))
                 .padding(horizontal = 16.dp, vertical = 12.dp)) {
                 if (s.claudeDraft.isEmpty()) Text("Сообщение…", color = B.Gray, fontSize = 16.sp)
                 BasicTextField(s.claudeDraft, { s.claudeDraft = it }, maxLines = 6,
-                    textStyle = TextStyle(color = Color.White, fontSize = 16.sp), cursorBrush = SolidColor(B.Blue),
+                    textStyle = TextStyle(color = Color.White, fontSize = 16.sp, fontFamily = Rounded), cursorBrush = SolidColor(B.Coral),
                     modifier = Modifier.fillMaxWidth())
             }
             Spacer(Modifier.size(8.dp))
             val canSend = s.claudeDraft.isNotBlank() && !s.claudeBusy
             Box(Modifier.size(44.dp).clip(CircleShape)
-                .background(if (canSend) Module.CLAUDE.brush else Module.VOICE.brush)
+                .background(if (canSend) Module.CLAUDE.brush else androidx.compose.ui.graphics.Brush.linearGradient(B.GCoral))
                 .clickable {
                     if (canSend) { val t = s.claudeDraft; s.claudeDraft = ""; s.sendClaude(t) } else s.startVoice()
                 }, contentAlignment = Alignment.Center) {
-                Text(if (canSend) "↑" else "🎙️", color = Color.White, fontSize = 20.sp)
+                androidx.compose.material3.Icon(if (canSend) androidx.compose.material.icons.Icons.Rounded.ArrowUpward
+                    else androidx.compose.material.icons.Icons.Rounded.Mic, null, tint = Color.White)
             }
         }
     }
@@ -100,7 +103,7 @@ private fun Bubble(s: LauncherState, mine: Boolean, text: String, typing: Boolea
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
         Column(Modifier.widthIn(max = 310.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(if (mine) B.Blue else Color(0xFF26293F))
+            .background(if (mine) Color(0xFF0A84FF) else Color(0xFF2C2530))
             .clickable(enabled = !typing) {
                 val cm = s.ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 cm.setPrimaryClip(ClipData.newPlainText("Claude", text)); s.toast("Скопировано")

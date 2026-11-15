@@ -5,3 +5,5 @@ local.properties
 .idea/
 *.iml
 scripts/mac/secrets.json
+app/src/test/resources/sample_dashboard.json
+app/src/test/snapshots/

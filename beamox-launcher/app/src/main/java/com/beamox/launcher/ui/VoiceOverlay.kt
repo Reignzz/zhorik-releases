@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.rounded.Mic
 
 /** Голосовой ассистент: «светящийся шар» внизу экрана, как Siri. */
 @Composable
@@ -57,7 +58,8 @@ fun VoiceOverlay(s: LauncherState) {
                 .background(Brush.sweepGradient(listOf(B.Violet, B.Pink, B.Orange, B.Cyan, B.Blue, B.Violet)))
                 .clickable { if (!s.voiceListening) s.startVoice() }, contentAlignment = Alignment.Center) {
                 Box(Modifier.size(70.dp).clip(CircleShape).background(Color(0x55000000)), contentAlignment = Alignment.Center) {
-                    Text("🎙️", fontSize = 28.sp)
+                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Rounded.Mic, null, tint = Color.White,
+                        modifier = Modifier.size(30.dp))
                 }
             }
             Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

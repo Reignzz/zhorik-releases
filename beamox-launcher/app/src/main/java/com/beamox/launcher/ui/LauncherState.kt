@@ -18,6 +18,7 @@ import com.beamox.launcher.core.AppRepository
 import com.beamox.launcher.core.BeamoxConfig
 import com.beamox.launcher.core.ChatMessage
 import com.beamox.launcher.core.ClaudeService
+import com.beamox.launcher.core.Dashboard
 import com.beamox.launcher.core.DeviceInfo
 import com.beamox.launcher.core.MailService
 import com.beamox.launcher.core.MailboxStatus
@@ -37,8 +38,16 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 
 /** Всё состояние лаунчера в одном месте. */
-class LauncherState(val activity: ComponentActivity, val scope: CoroutineScope) {
-    val ctx = activity.applicationContext
+class LauncherState(
+    val activity: ComponentActivity?,
+    appContext: android.content.Context,
+    val scope: CoroutineScope,
+    /** Режим предпросмотра (скриншоты): без сети, ключей и системных вызовов */
+    val preview: Boolean = false,
+) {
+    val ctx: android.content.Context = appContext
+    /** Контекст для запуска экранов */
+    val act: android.content.Context get() = activity ?: ctx
     val prefs = Prefs(ctx)
     val secrets = Secrets(ctx)
 
@@ -53,13 +62,20 @@ class LauncherState(val activity: ComponentActivity, val scope: CoroutineScope) 
     // Навигация
     var screen by mutableStateOf<Module?>(null)
     var homeRequest by mutableIntStateOf(0)
+    /** Стартовая страница (для предпросмотра) */
+    var previewPage = 1
     var searchOpen by mutableStateOf(false)
     var controlOpen by mutableStateOf(false)
+    var cleanupOpen by mutableStateOf(false)
 
     // Статистика
     val statsRepo = StatsRepository(prefs, secrets) { config }
     var stats by mutableStateOf(statsRepo.cached())
     var statsLoading by mutableStateOf(false)
+
+    // Живая панель Beamox
+    var dash by mutableStateOf<Dashboard?>(prefs.lastDashJson?.let { runCatching { Dashboard.parse(org.json.JSONObject(it)) }.getOrNull() })
+    var dashError by mutableStateOf<String?>(null)
 
     // Claude
     val claude = ClaudeService(secrets)
@@ -78,7 +94,7 @@ class LauncherState(val activity: ComponentActivity, val scope: CoroutineScope) 
     var device by mutableStateOf(DeviceInfo.read(ctx))
 
     // Голос
-    val voice by lazy { VoiceEngine(activity) }
+    val voice by lazy { VoiceEngine(act) }
     var voiceOpen by mutableStateOf(false)
     var voiceListening by mutableStateOf(false)
     var voiceHeard by mutableStateOf("")
@@ -90,7 +106,16 @@ class LauncherState(val activity: ComponentActivity, val scope: CoroutineScope) 
 
     fun reloadConfig() { config = BeamoxConfig.load(ctx) }
 
-    fun reloadApps() = scope.launch { apps = appsRepo.load() }
+    fun reloadApps() = scope.launch {
+        if (preview) return@launch
+        apps = appsRepo.load()
+        // Первый запуск: сразу прячем рекламный мусор из библиотеки (удалить — в «Очистке»)
+        if (!prefs.bloatScanned) {
+            val junk = com.beamox.launcher.core.Bloat.detect(ctx, apps).map { it.pkg }.toSet()
+            if (junk.isNotEmpty()) { hidden = hidden + junk; prefs.hiddenApps = hidden }
+            prefs.bloatScanned = true
+        }
+    }
 
     fun goHome() { screen = null; searchOpen = false; controlOpen = false; homeRequest++ }
 
@@ -117,12 +142,37 @@ class LauncherState(val activity: ComponentActivity, val scope: CoroutineScope) 
     fun refreshDevice() { device = DeviceInfo.read(ctx) }
 
     fun refreshStats() = scope.launch {
+        if (preview) return@launch
         statsLoading = true
-        stats = statsRepo.refresh()
+        val url = prefs.dashboardUrl
+        if (!url.isNullOrBlank()) {
+            Dashboard.fetch(url).onSuccess { (d, body) ->
+                dash = d; dashError = null; stats = d.toStats(); prefs.lastDashJson = body
+            }.onFailure { dashError = "Панель недоступна: ${it.message}" }
+        } else {
+            stats = statsRepo.refresh()
+        }
         statsLoading = false
     }
 
+    init { dash?.let { stats = it.toStats() } }
+
+    /** Ссылка на панель из буфера обмена (кнопка «Вставить ссылку») */
+    fun pastePanelLink() {
+        val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val t = cm.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(ctx)?.toString()?.trim().orEmpty()
+        if (!t.startsWith("https://")) { toast("Скопируйте ссылку на панель (https://…) и нажмите ещё раз"); return }
+        setPanelLink(t)
+    }
+
+    fun setPanelLink(url: String) {
+        prefs.dashboardUrl = url.trim()
+        toast("Панель подключена, загружаю…")
+        refreshStats()
+    }
+
     fun refreshMail() = scope.launch {
+        if (preview) return@launch
         val boxes = config.mailboxes.filter { secrets.mailPassword(it.address).isNotBlank() }
         mailStatus = boxes.map { async { mail.status(it) } }.awaitAll()
     }
@@ -141,7 +191,7 @@ class LauncherState(val activity: ComponentActivity, val scope: CoroutineScope) 
 
     // ---------- Claude ----------
     fun officeContext(): String = buildString {
-        appendLine("Статистика: ${stats.summary()}")
+        dash?.let { appendLine("Панель Beamox (живые данные): ${it.summary()}") } ?: appendLine("Статистика: ${stats.summary()}")
         val open = tasks.filter { !it.done }
         appendLine("Открытые задачи (${open.size}): ${open.take(15).joinToString("; ") { it.text }.ifBlank { "нет" }}")
         appendLine("Почтовые ящики: ${config.mailboxes.joinToString { "${it.name} <${it.address}>" }}")
@@ -171,7 +221,7 @@ class LauncherState(val activity: ComponentActivity, val scope: CoroutineScope) 
         val i = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(to)))
             .putExtra(Intent.EXTRA_SUBJECT, subject)
             .putExtra(Intent.EXTRA_TEXT, body)
-        AppRepository.safeStart(activity, Intent.createChooser(i, "Отправить письмо"))
+        AppRepository.safeStart(act, Intent.createChooser(i, "Отправить письмо"))
     }
 
     /** Разбирает ответ Claude вида «Тема: …\n\nтекст» */
@@ -188,8 +238,8 @@ class LauncherState(val activity: ComponentActivity, val scope: CoroutineScope) 
     fun hasMic(): Boolean =
         ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
-    fun requestMic() = ActivityCompat.requestPermissions(activity,
-        arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS), 77)
+    fun requestMic() { activity?.let { ActivityCompat.requestPermissions(it,
+        arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS), 77) } }
 
     fun setHandsFreeMode(on: Boolean) {
         if (on && !hasMic()) { requestMic(); return }
@@ -253,13 +303,13 @@ class LauncherState(val activity: ComponentActivity, val scope: CoroutineScope) 
             is VoiceAction.OpenApp -> { closeVoice(); appsRepo.launch(a.app) }
             is VoiceAction.OpenSocial -> { closeVoice(); openSocial(a.social) }
             is VoiceAction.OpenSys -> { closeVoice(); runCatching { openSys(SysApp.valueOf(a.name)) } }
-            is VoiceAction.Camera -> { closeVoice(); AppRepository.safeStart(activity, AppRepository.cameraIntent) }
+            is VoiceAction.Camera -> { closeVoice(); AppRepository.safeStart(act, AppRepository.cameraIntent) }
             is VoiceAction.Home -> { closeVoice(); goHome() }
             is VoiceAction.Call -> {
                 closeVoice()
                 val granted = ContextCompat.checkSelfPermission(ctx, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
                 val i = Intent(if (granted) Intent.ACTION_CALL else Intent.ACTION_DIAL, Uri.parse("tel:" + a.number))
-                AppRepository.safeStart(activity, i)
+                AppRepository.safeStart(act, i)
             }
             is VoiceAction.AddTask -> { addTask(a.text); say("Задача добавлена: ${a.text}") }
             is VoiceAction.SayText -> say(a.text)
@@ -282,21 +332,21 @@ class LauncherState(val activity: ComponentActivity, val scope: CoroutineScope) 
 
     fun openUrl(url: String) {
         if (url.isBlank()) return
-        AppRepository.safeStart(activity, Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        AppRepository.safeStart(act, Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     }
 
     /** Соцсеть компании: сначала в приложении соцсети, если его нет — в браузере. */
     fun openSocial(so: Social) {
         val i = Intent(Intent.ACTION_VIEW, Uri.parse(so.url))
         if (so.pkg.isNotBlank() && apps.any { it.pkg == so.pkg }) {
-            try { activity.startActivity(Intent(i).setPackage(so.pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return }
+            try { act.startActivity(Intent(i).setPackage(so.pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return }
             catch (_: Exception) { }
         }
-        AppRepository.safeStart(activity, i)
+        AppRepository.safeStart(act, i)
     }
 
     fun haptic() {
-        activity.window?.decorView?.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+        activity?.window?.decorView?.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
     }
 
     fun toast(t: String) = Toast.makeText(ctx, t, Toast.LENGTH_SHORT).show()

@@ -79,7 +79,7 @@ fun OfficeScreen(s: LauncherState) {
                         RowItem(tm.name, listOf(tm.role, tm.phone, tm.email).filter { it.isNotBlank() }.joinToString(" · "),
                             emoji = "👤", end = {
                                 if (tm.phone.isNotBlank()) Text("📞", fontSize = 20.sp, modifier = Modifier.padding(6.dp).clickable {
-                                    AppRepository.safeStart(s.activity, Intent(Intent.ACTION_DIAL, Uri.parse("tel:${tm.phone}")))
+                                    AppRepository.safeStart(s.act, Intent(Intent.ACTION_DIAL, Uri.parse("tel:${tm.phone}")))
                                 })
                                 if (tm.email.isNotBlank()) Text("✉️", fontSize = 20.sp, modifier = Modifier.padding(6.dp).clickable {
                                     s.composeMail("", "", tm.email)

@@ -13,12 +13,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.getValue
 import kotlinx.coroutines.delay
 
 @Composable
 fun LauncherRoot(s: LauncherState) {
     // Фоновые обновления: статистика и почта
     LaunchedEffect(Unit) {
+        if (s.preview) return@LaunchedEffect
         s.reloadApps()
         while (true) {
             s.refreshStats()
@@ -35,7 +39,9 @@ fun LauncherRoot(s: LauncherState) {
         }
     }
     Box(Modifier.fillMaxSize()) {
-        HomeScreen(s)
+        val overlay = s.controlOpen || s.voiceOpen || s.screen != null
+        val blur by androidx.compose.animation.core.animateDpAsState(if (overlay) 28.dp else 0.dp, label = "blur")
+        Box(Modifier.fillMaxSize().blur(blur)) { HomeScreen(s) }
         Module.entries.forEach { m ->
             AnimatedVisibility(s.screen == m,
                 enter = scaleIn(initialScale = 0.85f) + fadeIn(),

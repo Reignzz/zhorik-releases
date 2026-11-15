@@ -50,6 +50,18 @@ class Prefs(ctx: Context) {
         get() = p.getInt("provHash", 0)
         set(v) = p.edit().putInt("provHash", v).apply()
 
+    var dashboardUrl: String?
+        get() = p.getString("dashUrl", null)
+        set(v) = p.edit().putString("dashUrl", v).apply()
+
+    var lastDashJson: String?
+        get() = p.getString("lastDash", null)
+        set(v) = p.edit().putString("lastDash", v).apply()
+
+    var bloatScanned: Boolean
+        get() = p.getBoolean("bloatScanned", false)
+        set(v) = p.edit().putBoolean("bloatScanned", v).apply()
+
     var lastStatsJson: String?
         get() = p.getString("lastStats", null)
         set(v) = p.edit().putString("lastStats", v).apply()
@@ -67,10 +79,15 @@ class Prefs(ctx: Context) {
 class Secrets(ctx: Context) {
     private val p: SharedPreferences = try {
         openPrefs(ctx)
-    } catch (e: Exception) {
-        // Хранилище повреждено (например, после восстановления из бэкапа) — пересоздаём, но всё равно зашифрованным.
-        ctx.deleteSharedPreferences("secrets")
-        openPrefs(ctx)
+    } catch (e: Throwable) {
+        try {
+            // Хранилище повреждено (например, после восстановления из бэкапа) — пересоздаём, но всё равно зашифрованным.
+            ctx.deleteSharedPreferences("secrets")
+            openPrefs(ctx)
+        } catch (e2: Throwable) {
+            // Нет Android Keystore (предпросмотр) — секреты только в памяти, на диск ничего не пишется
+            MemoryPrefs()
+        }
     }
 
     private fun openPrefs(ctx: Context): SharedPreferences {
@@ -111,6 +128,7 @@ object Provisioning {
             val o = JSONObject(text)
             o.optString("claudeApiKey").takeIf { it.isNotBlank() }?.let { secrets.claudeKey = it }
             o.optString("statsUrl").takeIf { it.isNotBlank() }?.let { prefs.statsUrl = it }
+            o.optString("dashboardUrl").takeIf { it.isNotBlank() }?.let { prefs.dashboardUrl = it }
             o.optString("statsToken").takeIf { it.isNotBlank() }?.let { secrets.statsToken = it }
             o.optString("studioUrl").takeIf { it.isNotBlank() }?.let { prefs.studioUrl = it }
             o.optString("claudeModel").takeIf { it.isNotBlank() }?.let { prefs.claudeModel = it }
@@ -145,5 +163,32 @@ object Tasks {
         val a = JSONArray()
         list.forEach { a.put(JSONObject().put("id", it.id).put("text", it.text).put("done", it.done)) }
         prefs.tasksJson = a.toString()
+    }
+}
+
+/** Хранилище «только в памяти» — на случай отсутствия Keystore. Ничего не сохраняет на диск. */
+private class MemoryPrefs : SharedPreferences {
+    private val m = HashMap<String, Any?>()
+    override fun getAll(): MutableMap<String, *> = m
+    override fun getString(k: String?, d: String?) = m[k] as? String ?: d
+    override fun getStringSet(k: String?, d: MutableSet<String>?) = @Suppress("UNCHECKED_CAST") (m[k] as? MutableSet<String> ?: d)
+    override fun getInt(k: String?, d: Int) = m[k] as? Int ?: d
+    override fun getLong(k: String?, d: Long) = m[k] as? Long ?: d
+    override fun getFloat(k: String?, d: Float) = m[k] as? Float ?: d
+    override fun getBoolean(k: String?, d: Boolean) = m[k] as? Boolean ?: d
+    override fun contains(k: String?) = m.containsKey(k)
+    override fun registerOnSharedPreferenceChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener?) {}
+    override fun unregisterOnSharedPreferenceChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener?) {}
+    override fun edit(): SharedPreferences.Editor = object : SharedPreferences.Editor {
+        override fun putString(k: String?, v: String?) = apply { m[k!!] = v }
+        override fun putStringSet(k: String?, v: MutableSet<String>?) = apply { m[k!!] = v }
+        override fun putInt(k: String?, v: Int) = apply { m[k!!] = v }
+        override fun putLong(k: String?, v: Long) = apply { m[k!!] = v }
+        override fun putFloat(k: String?, v: Float) = apply { m[k!!] = v }
+        override fun putBoolean(k: String?, v: Boolean) = apply { m[k!!] = v }
+        override fun remove(k: String?) = apply { m.remove(k) }
+        override fun clear() = apply { m.clear() }
+        override fun commit() = true
+        override fun apply() {}
     }
 }

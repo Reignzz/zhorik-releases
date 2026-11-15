@@ -1,6 +1,8 @@
 package com.beamox.launcher.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,52 +22,126 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBackIos
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.BusinessCenter
+import androidx.compose.material.icons.rounded.Email
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.PhotoLibrary
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Inbox
+import androidx.compose.material.icons.rounded.Celebration
+import androidx.compose.material.icons.rounded.Notes
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.CameraAlt
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.ThumbUp
+import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.Work
+import androidx.compose.material.icons.rounded.Circle
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.cos
+import kotlin.math.sin
 
 /** Разделы Beamox внутри лаунчера */
-enum class Module(val title: String, val emoji: String, val c1: Color, val c2: Color) {
-    CLAUDE("Claude", "✳️", Color(0xFFD97757), Color(0xFFB4532F)),
-    STATS("Статистика", "📊", Color(0xFF34C759), Color(0xFF0A8F3C)),
-    STUDIO("Студия", "🎬", Color(0xFFFF375F), Color(0xFFB0124A)),
-    OFFICE("Офис", "🏢", Color(0xFF2F80FF), Color(0xFF1846B8)),
-    MAIL("Почта", "✉️", Color(0xFF32D4F5), Color(0xFF1479E6)),
-    VOICE("Голос", "🎙️", Color(0xFF8E5CFF), Color(0xFF4B23C9)),
-    SETTINGS("Настройки", "⚙️", Color(0xFF8E8E93), Color(0xFF48484A));
+enum class Module(val title: String, val icon: ImageVector?, val c1: Color, val c2: Color) {
+    CLAUDE("Claude", null, Color(0xFFE38A63), Color(0xFFC9623C)),
+    STATS("Статистика", Icons.Rounded.BarChart, Color(0xFF5EE6A8), Color(0xFF1FA971)),
+    STUDIO("Студия", Icons.Rounded.Movie, Color(0xFFFF8A7A), Color(0xFFFF3D5A)),
+    OFFICE("Офис", Icons.Rounded.BusinessCenter, Color(0xFF7AA2FF), Color(0xFF4A63E8)),
+    MAIL("Почта", Icons.Rounded.Email, Color(0xFF5AC8FA), Color(0xFF1E7BEF)),
+    VOICE("Голос", Icons.Rounded.GraphicEq, Color(0xFFB794FF), Color(0xFF7448F0)),
+    SETTINGS("Настройки", Icons.Rounded.Settings, Color(0xFF9C9CA3), Color(0xFF5E5E66));
 
-    val brush get() = Brush.linearGradient(listOf(c1, c2))
+    val brush get() = Brush.verticalGradient(listOf(c1, c2))
+    val emoji get() = "" // совместимость
+}
+
+/** Иконка в стиле iOS 26: цветной суперэллипс, мягкий блик сверху, белый символ */
+@Composable
+fun GlyphIcon(
+    c1: Color, c2: Color, icon: ImageVector?, size: Dp = 60.dp,
+    glyphColor: Color = Color.White, glyphScale: Float = 0.52f,
+    custom: (@Composable () -> Unit)? = null,
+) {
+    Box(
+        Modifier.size(size).clip(Squircle).background(Brush.verticalGradient(listOf(c1, c2)))
+            .drawWithContent {
+                drawContent()
+                // блик «жидкого стекла»
+                drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.Transparent), endY = this.size.height * 0.55f))
+            }
+            .border(0.6.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.35f), Color.White.copy(alpha = 0.05f))), Squircle),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (custom != null) custom()
+        else if (icon != null) Icon(icon, null, tint = glyphColor, modifier = Modifier.size(size * glyphScale))
+    }
+}
+
+/** Знак Claude — коралловые лучи (как в панели Beamox) */
+@Composable
+fun ClaudeBurst(size: Dp, color: Color = Color.White) {
+    Canvas(Modifier.size(size)) {
+        val c = Offset(this.size.width / 2, this.size.height / 2)
+        val s = this.size.minDimension / 40f
+        for (k in 0 until 12) {
+            val a = Math.PI / 6 * k + .13
+            val r1 = 4.5f * s; val r2 = (if (k % 2 == 1) 15f else 18f) * s
+            drawLine(color, Offset(c.x + r1 * cos(a).toFloat(), c.y + r1 * sin(a).toFloat()),
+                Offset(c.x + r2 * cos(a).toFloat(), c.y + r2 * sin(a).toFloat()), strokeWidth = 3.6f * s, cap = StrokeCap.Round)
+        }
+        drawCircle(color, 4.6f * s, c)
+    }
 }
 
 @Composable
 fun ModuleIcon(m: Module, size: Dp = 60.dp) {
-    Box(
-        Modifier.size(size).clip(Squircle).background(m.brush),
-        contentAlignment = Alignment.Center,
-    ) { Text(m.emoji, fontSize = (size.value * 0.48f).sp) }
+    if (m == Module.CLAUDE) GlyphIcon(m.c1, m.c2, null, size) { ClaudeBurst(size * 0.62f) }
+    else GlyphIcon(m.c1, m.c2, m.icon, size)
 }
+
+val LabelStyle = TextStyle(
+    fontFamily = Rounded, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
+    shadow = Shadow(Color(0x99000000), Offset(0f, 1f), 4f),
+)
 
 @Composable
 fun IconLabel(text: String) {
-    Text(
-        text, color = Color.White, fontSize = 11.5.sp, maxLines = 1,
-        overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp),
-    )
+    Text(text, style = LabelStyle, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
 }
 
-/** Полноэкранный «лист» раздела с заголовком как в iOS. */
+/** Полноэкранный раздел с большим заголовком как в iOS */
 @Composable
 fun ModuleSheet(
     title: String,
@@ -73,34 +149,43 @@ fun ModuleSheet(
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(
-        Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF0B1030), Color(0xFF05070F))))
-            .statusBarsPadding()
-    ) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад", tint = B.Blue) }
+    Column(Modifier.fillMaxSize().background(ScreenBg).background(PanelGlow).statusBarsPadding()) {
+        Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.clip(CircleShape).clickable { onBack() }.padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.AutoMirrored.Rounded.ArrowBackIos, "Назад", tint = B.Coral, modifier = Modifier.size(18.dp))
+                Text("Домой", color = B.Coral, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            }
             Spacer(Modifier.weight(1f))
             actions()
         }
-        Text(title, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White,
-            modifier = Modifier.padding(start = 20.dp, bottom = 8.dp))
+        Text(title, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = B.Text, letterSpacing = (-0.3).sp,
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 6.dp))
         content()
     }
 }
 
+/** Свечение панели: коралл справа сверху, розовый слева снизу */
+val PanelGlow: Brush
+    get() = Brush.radialGradient(listOf(Color(0x38FF7A50), Color.Transparent), center = Offset(1400f, 0f), radius = 1300f)
+
 @Composable
 fun SectionTitle(t: String) {
-    Text(t.uppercase(), color = B.Gray, fontSize = 12.sp, letterSpacing = 0.6.sp,
-        modifier = Modifier.padding(start = 20.dp, top = 18.dp, bottom = 6.dp))
+    Text(t.uppercase(), color = B.Faint, fontSize = 12.5.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.ExtraBold,
+        modifier = Modifier.padding(start = 34.dp, top = 22.dp, bottom = 7.dp))
 }
 
-/** Группа строк как в настройках iOS */
+/** Группа строк как в Настройках iOS */
 @Composable
 fun Group(content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp))
-        .background(Color(0xFF1C1F33)), content = content)
+    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(26.dp))
+        .background(B.Group), content = content)
 }
 
+/**
+ * Строка как в Настройках iOS: цветной квадрат с символом, заголовок, значение, шеврон.
+ * emoji оставлен для совместимости, но вместо него лучше icon.
+ */
 @Composable
 fun RowItem(
     title: String,
@@ -108,42 +193,116 @@ fun RowItem(
     emoji: String? = null,
     trailing: String? = null,
     onClick: (() -> Unit)? = null,
+    icon: ImageVector? = null,
+    iconColor: Color = B.Coral,
     end: @Composable (() -> Unit)? = null,
 ) {
     Row(
         Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
-            .padding(horizontal = 14.dp, vertical = 11.dp),
+            .padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (emoji != null) {
-            Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Color(0x22FFFFFF)),
-                contentAlignment = Alignment.Center) { Text(emoji, fontSize = 16.sp) }
-            Spacer(Modifier.width(12.dp))
+        if (icon != null) {
+            Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(Brush.verticalGradient(listOf(iconColor, iconColor.darken()))),
+                contentAlignment = Alignment.Center) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+            Spacer(Modifier.width(14.dp))
+        } else if (emoji != null) {
+            val (ic, col) = emojiIcon(emoji)
+            Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(Brush.verticalGradient(listOf(col, col.darken()))),
+                contentAlignment = Alignment.Center) { Icon(ic, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+            Spacer(Modifier.width(14.dp))
         }
         Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (subtitle != null) Text(subtitle, color = B.Gray, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, color = B.Text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (subtitle != null) Text(subtitle, color = B.Faint, fontSize = 13.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        if (trailing != null) Text(trailing, color = B.Gray, fontSize = 15.sp)
+        if (trailing != null) Text(trailing, color = B.Faint, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
         end?.invoke()
+        if (onClick != null && end == null) {
+            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Color(0x55FFFFFF), modifier = Modifier.size(24.dp))
+        }
     }
 }
 
+fun Color.darken(f: Float = 0.78f) = Color(red * f, green * f, blue * f, alpha)
+
 @Composable
-fun Pill(text: String, color: Color = B.Blue, onClick: () -> Unit) {
-    Box(Modifier.clip(CircleShape).background(color.copy(alpha = 0.22f)).clickable { onClick() }
+fun Pill(text: String, color: Color = B.Coral, onClick: () -> Unit) {
+    Box(Modifier.clip(CircleShape).background(color.copy(alpha = 0.18f)).clickable { onClick() }
         .padding(horizontal = 14.dp, vertical = 8.dp)) {
-        Text(text, color = Color.White, fontSize = 14.sp)
+        Text(text, color = color.lighten(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
+}
+
+fun Color.lighten(f: Float = 0.35f) = Color(red + (1 - red) * f, green + (1 - green) * f, blue + (1 - blue) * f, alpha)
+
+/** Статус-«пилюля» как в панели */
+@Composable
+fun StatusPill(text: String, color: Color) {
+    Text(text, color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+        modifier = Modifier.clip(CircleShape).background(color.copy(alpha = 0.17f)).padding(horizontal = 12.dp, vertical = 6.dp))
 }
 
 @Composable
 fun Hint(text: String, modifier: Modifier = Modifier) {
-    Text(text, color = B.Gray, fontSize = 13.sp, modifier = modifier.padding(horizontal = 20.dp, vertical = 6.dp))
+    Text(text, color = B.Faint, fontSize = 13.5.sp, modifier = modifier.padding(horizontal = 34.dp, vertical = 6.dp))
 }
 
-val ListPadding = PaddingValues(bottom = 40.dp)
+val ListPadding = PaddingValues(bottom = 48.dp)
 val Gap = Arrangement.spacedBy(10.dp)
 
 @Composable
 fun VSpace(h: Dp) = Spacer(Modifier.height(h))
+
+/** Карточка панели: стекло, скругление 24, заголовок капсом */
+@Composable
+fun PanelCard(title: String, right: String = "", modifier: Modifier = Modifier, onClick: (() -> Unit)? = null,
+              content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier.padding(horizontal = 16.dp, vertical = 7.dp).fillMaxWidth()
+        .clip(RoundedCornerShape(24.dp)).background(Color(0x0EFFFFFF))
+        .border(1.dp, Color(0x13FFFFFF), RoundedCornerShape(24.dp))
+        .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
+        .padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 2.dp, bottom = 12.dp)) {
+            Text(title.uppercase(), color = B.Faint, fontSize = 12.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.weight(1f))
+            if (right.isNotBlank()) Text(right, color = B.Faint, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+        content()
+    }
+}
+
+/** Нажатие как в iOS: иконка слегка «проседает», без серой ряби */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun Modifier.bounceClick(onLongClick: (() -> Unit)? = null, onClick: () -> Unit): Modifier {
+    val src = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed = src.collectIsPressedAsState()
+    val sc = androidx.compose.animation.core.animateFloatAsState(if (pressed.value) 0.88f else 1f, label = "bounce")
+    return this
+        .graphicsLayer { scaleX = sc.value; scaleY = sc.value; alpha = if (pressed.value) 0.85f else 1f }
+        .combinedClickable(interactionSource = src, indication = null, onClick = onClick, onLongClick = onLongClick)
+}
+
+/** Эмодзи из конфигурации → символ iOS-стиля и цвет */
+fun emojiIcon(e: String): Pair<ImageVector, Color> = when (e) {
+    "✉️" -> androidx.compose.material.icons.Icons.Rounded.Email to Color(0xFF0A84FF)
+    "👤" -> androidx.compose.material.icons.Icons.Rounded.Person to Color(0xFF8E8E93)
+    "🎥" -> androidx.compose.material.icons.Icons.Rounded.Videocam to Color(0xFFFF453A)
+    "🖼" -> androidx.compose.material.icons.Icons.Rounded.PhotoLibrary to Color(0xFFFF9500)
+    "✳️" -> androidx.compose.material.icons.Icons.Rounded.AutoAwesome to B.Coral
+    "✏️" -> androidx.compose.material.icons.Icons.Rounded.Edit to Color(0xFFFF9500)
+    "📮" -> androidx.compose.material.icons.Icons.Rounded.Inbox to Color(0xFFFF453A)
+    "🎉" -> androidx.compose.material.icons.Icons.Rounded.Celebration to Color(0xFF30D158)
+    "📝" -> androidx.compose.material.icons.Icons.Rounded.Notes to Color(0xFFFFD60A)
+    "🌐" -> androidx.compose.material.icons.Icons.Rounded.Language to Color(0xFF40C8E0)
+    "📁" -> androidx.compose.material.icons.Icons.Rounded.Folder to Color(0xFF0A84FF)
+    "📅" -> androidx.compose.material.icons.Icons.Rounded.CalendarMonth to Color(0xFFFF453A)
+    "📸" -> androidx.compose.material.icons.Icons.Rounded.CameraAlt to Color(0xFFE1306C)
+    "🎵" -> androidx.compose.material.icons.Icons.Rounded.MusicNote to Color(0xFF111111)
+    "▶️" -> androidx.compose.material.icons.Icons.Rounded.PlayArrow to Color(0xFFFF2D2D)
+    "📘" -> androidx.compose.material.icons.Icons.Rounded.ThumbUp to Color(0xFF2D74F5)
+    "✈️" -> androidx.compose.material.icons.Icons.AutoMirrored.Rounded.Send to Color(0xFF2AA3EF)
+    "💼" -> androidx.compose.material.icons.Icons.Rounded.Work to Color(0xFF0A66C2)
+    else -> androidx.compose.material.icons.Icons.Rounded.Circle to Color(0xFF8E8E93)
+}

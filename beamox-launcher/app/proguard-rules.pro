@@ -1,0 +1,23 @@
+# Beamox: библиотеки, использующие рефлексию, сохраняем целиком
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,Exceptions,RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations,KotlinMetadata
+-keep class com.beamox.** { *; }
+-keep class com.anthropic.** { *; }
+-keep class com.fasterxml.jackson.** { *; }
+-keep class kotlin.Metadata { *; }
+-keep class kotlin.reflect.** { *; }
+-keep class kotlin.jvm.internal.** { *; }
+-keep class com.github.victools.** { *; }
+-keep class io.swagger.** { *; }
+-keep class io.opentelemetry.** { *; }
+-keep class com.standardwebhooks.** { *; }
+-keep class javax.mail.** { *; }
+-keep class com.sun.mail.** { *; }
+-keep class javax.activation.** { *; }
+-keep class com.sun.activation.** { *; }
+-keep class myjava.awt.** { *; }
+-keep class okhttp3.** { *; }
+-keep class okio.** { *; }
+-keep class androidx.security.crypto.** { *; }
+-keep class com.google.crypto.tink.** { *; }
+-dontwarn **
+-dontnote **
