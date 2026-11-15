@@ -21,22 +21,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.beamox.launcher.R
 
-/** Скруглённый шрифт (аналог SF Pro Rounded из панели Beamox) */
+/** Шрифт интерфейса: Inter — ближайший свободный аналог SF Pro (системный шрифт iOS) */
 val Rounded = FontFamily(
-    Font(R.font.nunito_regular, FontWeight.Normal),
-    Font(R.font.nunito_medium, FontWeight.Medium),
-    Font(R.font.nunito_semibold, FontWeight.SemiBold),
-    Font(R.font.nunito_bold, FontWeight.Bold),
-    Font(R.font.nunito_extrabold, FontWeight.ExtraBold),
+    Font(R.font.inter_light, FontWeight.Light),
+    Font(R.font.inter_regular, FontWeight.Normal),
+    Font(R.font.inter_medium, FontWeight.Medium),
+    Font(R.font.inter_semibold, FontWeight.SemiBold),
+    Font(R.font.inter_bold, FontWeight.Bold),
+    Font(R.font.inter_extrabold, FontWeight.ExtraBold),
 )
 
-/** Палитра — из панели Beamox («Генератор охватов») */
+/** Палитра: системные цвета iOS (тёмная тема) + акценты Beamox */
 object B {
-    val Bg1 = Color(0xFF1E1624)
-    val Bg2 = Color(0xFF0E0F13)
-    val Text = Color(0xFFF6F3ED)
-    val Dim = Color(0xFFC2BDB5)
-    val Faint = Color(0xFF8F8B85)
+    val Bg1 = Color(0xFF000000)
+    val Bg2 = Color(0xFF000000)
+    val Text = Color(0xFFFFFFFF)
+    val Dim = Color(0x99EBEBF5)      // secondaryLabel
+    val Faint = Color(0xFF8E8E93)    // systemGray
+    val Accent = Color(0xFF0A84FF)   // systemBlue (dark)
     val Green = Color(0xFF4CD787)
     val Amber = Color(0xFFF5B841)
     val Red = Color(0xFFFF5F57)
@@ -54,8 +56,8 @@ object B {
     val Navy = Bg2
 
     /** Карточки-группы (как в Настройках iOS) */
-    val Group = Color(0xFF221C27)
-    val Separator = Color(0x1AFFFFFF)
+    val Group = Color(0xFF1C1C1E)    // secondarySystemGroupedBackground
+    val Separator = Color(0x5454589E)
 
     // Градиенты колец/полос (как в панели)
     val GWeek = listOf(Color(0xFFFFB36B), Color(0xFFFF6B4A))

@@ -3,6 +3,7 @@ package com.beamox.launcher.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -236,11 +238,17 @@ fun TodayPage(s: LauncherState) {
         while (true) { now = Date(); s.refreshDevice(); delay(60_000L - System.currentTimeMillis() % 60_000L) }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Column(Modifier.fillMaxWidth().padding(top = 26.dp, bottom = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 8.dp)) {
+            Box(Modifier.fillMaxWidth().bounceClick { s.searchOpen = true }) {
+                Row(Modifier.fillMaxWidth().glass(CircleShape, 0.10f).padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(androidx.compose.material.icons.Icons.Rounded.Search, null, tint = B.Dim, modifier = Modifier.size(18.dp))
+                    Text("  Поиск", color = B.Dim, fontSize = 17.sp)
+                }
+            }
             Text(SimpleDateFormat("EEEE, d MMMM", ru).format(now).replaceFirstChar { it.uppercase() },
-                color = B.Dim, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Text(SimpleDateFormat("H:mm", ru).format(now), color = B.Text, fontSize = 92.sp,
-                fontWeight = FontWeight.ExtraBold, letterSpacing = (-3).sp, lineHeight = 96.sp)
+                color = B.Text, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp,
+                modifier = Modifier.padding(start = 4.dp, top = 18.dp))
         }
         val d = s.dash
         if (d == null) ConnectPanelCard(s)
@@ -264,14 +272,14 @@ fun TodayPage(s: LauncherState) {
             }
         }
         Row(Modifier.padding(horizontal = 16.dp, vertical = 7.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            SmallWidget(Modifier.weight(1f), "Почта", B.Blue, { s.open(Module.MAIL) }) {
+            SmallWidget(Modifier.weight(1f), "Почта", B.Accent, { s.open(Module.MAIL) }) {
                 val u = s.unreadTotal
-                Text(u?.toString() ?: "—", color = B.Text, fontSize = 40.sp, fontWeight = FontWeight.ExtraBold)
+                Text(u?.toString() ?: "—", color = B.Text, fontSize = 42.sp, fontWeight = FontWeight.Light)
                 Text(if (u == null) "Добавьте пароли почт в Настройках" else "непрочитанных", color = B.Faint, fontSize = 12.5.sp)
             }
             SmallWidget(Modifier.weight(1f), "Задачи", B.Amber, { s.open(Module.OFFICE) }) {
                 val open = s.tasks.filter { !it.done }
-                Text("${open.size}", color = B.Text, fontSize = 40.sp, fontWeight = FontWeight.ExtraBold)
+                Text("${open.size}", color = B.Text, fontSize = 42.sp, fontWeight = FontWeight.Light)
                 Text(if (open.isEmpty()) "всё сделано" else open.first().text, color = B.Faint, fontSize = 12.5.sp,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
@@ -299,9 +307,9 @@ fun ConnectPanelCard(s: LauncherState) {
 
 @Composable
 private fun SmallWidget(modifier: Modifier, title: String, accent: Color, onClick: () -> Unit, content: @Composable () -> Unit) {
-    Column(modifier.height(150.dp).clip(RoundedCornerShape(24.dp)).background(Color(0x0EFFFFFF))
+    Column(modifier.height(158.dp).clip(RoundedCornerShape(26.dp)).background(B.Group)
         .clickable { onClick() }.padding(16.dp)) {
-        Text(title.uppercase(), color = accent, fontSize = 12.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.ExtraBold)
+        Text(title, color = accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(4.dp))
         content()
     }
@@ -310,28 +318,29 @@ private fun SmallWidget(modifier: Modifier, title: String, accent: Color, onClic
 // ================================================================== Квадратные виджеты главного экрана
 /** Квадратный виджет (2×2 иконки), как погода/Revolut на iPhone */
 @Composable
-fun SquareWidget(modifier: Modifier, onClick: () -> Unit, content: @Composable () -> Unit) {
-    Box(modifier.aspectRatio(1f).glass(RoundedCornerShape(28.dp)).bounceClick(onClick = onClick).padding(16.dp)) { content() }
+fun SquareWidget(modifier: Modifier, bg: Brush, label: String = "", sheen: Boolean = false, onClick: () -> Unit, content: @Composable () -> Unit) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.fillMaxWidth().aspectRatio(1f).bounceClick(onClick = onClick).clip(RoundedCornerShape(30.dp)).background(bg)
+            .then(if (sheen) Modifier.background(Brush.linearGradient(
+                0.0f to Color.Transparent, 0.55f to Color.Transparent, 0.56f to Color.White.copy(alpha = 0.07f), 1f to Color.White.copy(alpha = 0.02f)))
+            else Modifier.background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.10f), Color.Transparent))))
+            .border(0.6.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(30.dp))
+            .padding(18.dp)) { content() }
+        if (label.isNotBlank()) Text(label, style = LabelStyle, modifier = Modifier.padding(top = 6.dp))
+    }
 }
 
 @Composable
 fun StudioSquare(s: LauncherState, modifier: Modifier) {
     val d = s.dash
-    SquareWidget(modifier, { s.open(if (d == null) Module.SETTINGS else Module.STATS) }) {
+    SquareWidget(modifier, Brush.verticalGradient(listOf(Color(0xE6E8794F), Color(0xD9C2456A))), "Студия", false,
+        { s.open(if (d == null) Module.SETTINGS else Module.STATS) }) {
         Column(Modifier.fillMaxSize()) {
-            Text(d?.studioName ?: "Студия", color = B.Text, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(num(d?.reach), color = B.Text, fontSize = 38.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 40.sp)
-            Text("охват", color = B.Dim, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(d?.studioName ?: "Студия", color = B.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(num(d?.reach), color = B.Text, fontSize = 44.sp, fontWeight = FontWeight.Light, letterSpacing = (-1.5).sp, lineHeight = 48.sp)
             Spacer(Modifier.weight(1f))
-            if (d != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    d.platforms.forEach { p ->
-                        Box(Modifier.weight(1f).height(5.dp).clip(CircleShape).background(Brush.horizontalGradient(B.platform[p.name] ?: B.GBlue)))
-                    }
-                }
-                Text("+${d.postedToday} сегодня", color = B.Green, fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp), maxLines = 1)
-            } else Text("Подключить панель", color = B.Coral, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+            Text(if (d != null) "охват · +${d.postedToday} сегодня" else "Подключить панель", color = Color.White,
+                fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 2, lineHeight = 16.sp)
         }
     }
 }
@@ -339,26 +348,22 @@ fun StudioSquare(s: LauncherState, modifier: Modifier) {
 @Composable
 fun ClaudeSquare(s: LauncherState, modifier: Modifier) {
     val d = s.dash
-    SquareWidget(modifier, { s.open(Module.CLAUDE) }) {
+    SquareWidget(modifier, Brush.verticalGradient(listOf(Color(0xFF111113), Color(0xFF050505))), "Claude", true, { s.open(Module.CLAUDE) }) {
         Column(Modifier.fillMaxSize()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                ClaudeBurst(20.dp, B.Coral)
-                Spacer(Modifier.width(6.dp))
-                Text("Claude", color = B.Text, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                ClaudeBurst(18.dp, B.Coral)
+                Text("  Claude", color = B.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.weight(1f))
             if (d != null && d.weekPct != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
-                    MiniRing(((d.weekPct) / 100).toFloat(), B.GWeek, "${d.weekPct.toInt()}%", "неделя")
-                    val fiveOn = d.fiveReset != null && d.fiveReset > System.currentTimeMillis()
+                val fiveOn = d.fiveReset != null && d.fiveReset > System.currentTimeMillis()
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    MiniRing((d.weekPct / 100).toFloat(), B.GWeek, "${d.weekPct.toInt()}%", "неделя")
                     MiniRing(if (fiveOn) ((d.fivePct ?: 0.0) / 100).toFloat() else 0f, B.GFive, if (fiveOn) "${d.fivePct?.toInt()}%" else "0%", "5 ч")
                 }
-                Spacer(Modifier.height(6.dp))
-                val st = when { d.waiting.isNotEmpty() -> "✋ ждёт вас" to B.Amber; d.working > 0 -> "● работает ${d.working}" to B.Green; else -> "свободен" to B.Faint }
-                Text(st.first, color = st.second, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
             } else {
-                Text("Спросить…", color = B.Dim, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                Text("статистика, письма, идеи", color = B.Faint, fontSize = 12.sp)
+                Text("Спросить…", color = B.Text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Text("статистика, письма, идеи", color = B.Faint, fontSize = 12.5.sp)
             }
         }
     }
@@ -367,7 +372,7 @@ fun ClaudeSquare(s: LauncherState, modifier: Modifier) {
 @Composable
 private fun MiniRing(f: Float, g: List<Color>, value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(50.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
                 val sw = 6.dp.toPx(); val tl = Offset(sw / 2, sw / 2); val sz = Size(size.width - sw, size.height - sw)
                 drawArc(Color(0x1FFFFFFF), 0f, 360f, false, tl, sz, style = Stroke(sw))

@@ -22,7 +22,7 @@ import java.io.File
  * (install.sh делает это из scripts/mac/brand/lockscreen.png) — будет использована она.
  */
 object BeamoxWallpaper {
-    const val VERSION = 2
+    const val VERSION = 4
 
     suspend fun apply(ctx: Context, company: String, tagline: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
@@ -46,19 +46,27 @@ object BeamoxWallpaper {
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val p = Paint(Paint.ANTI_ALIAS_FLAG)
-        // Фон панели Beamox: тёплый тёмный градиент
-        p.shader = LinearGradient(0f, 0f, 0f, h.toFloat(),
-            intArrayOf(Color.parseColor("#1E1624"), Color.parseColor("#120F17"), Color.parseColor("#0E0F13")),
-            floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP)
+        // «Титан»: тёмно-серый фон с мягким диагональным бликом и мелким зерном (как обои iPhone)
+        p.shader = LinearGradient(0f, 0f, w.toFloat(), h.toFloat(),
+            intArrayOf(Color.parseColor("#3A3B40"), Color.parseColor("#26272B"), Color.parseColor("#1B1C1F"), Color.parseColor("#2C2D31")),
+            floatArrayOf(0f, 0.35f, 0.7f, 1f), Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), p)
-        fun glow(x: Float, y: Float, r: Float, color: String) {
-            p.shader = RadialGradient(x, y, r, Color.parseColor(color), Color.TRANSPARENT, Shader.TileMode.CLAMP)
+        // диагональные световые полосы
+        fun band(x0: Float, y0: Float, x1: Float, y1: Float, color: String) {
+            p.shader = LinearGradient(x0, y0, x1, y1, intArrayOf(Color.TRANSPARENT, Color.parseColor(color), Color.TRANSPARENT),
+                floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
             c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), p)
         }
-        glow(w * 1.0f, 0f, w * 1.25f, "#5CFF7A50")      // коралл справа сверху
-        glow(0f, h * 1.0f, w * 1.1f, "#3DFF3D7F")         // розовый слева снизу
-        glow(w * 0.2f, h * 0.45f, w * 0.7f, "#1F8B7BFF")  // лёгкий фиолет
+        band(w * 0.25f, h * 0.05f, w * 0.75f, h * 0.30f, "#22FFFFFF")
+        band(w * 0.10f, h * 0.55f, w * 0.85f, h * 0.80f, "#14FFFFFF")
         p.shader = null
+        // зерно
+        val rnd = java.util.Random(7)
+        val dot = Paint()
+        repeat(w * h / 180) {
+            dot.color = Color.argb(rnd.nextInt(26) + 6, 255, 255, 255)
+            c.drawPoint(rnd.nextFloat() * w, rnd.nextFloat() * h, dot)
+        }
         if (big) {
             // Знак-лучи и надпись BEAMOX в нижней трети (часы Android остаются сверху)
             val cx = w / 2f; val cy = h * 0.70f; val s = w * 0.0042f

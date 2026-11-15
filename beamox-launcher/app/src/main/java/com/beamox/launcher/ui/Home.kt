@@ -5,6 +5,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -90,7 +92,7 @@ fun HomeScreen(s: LauncherState) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val w = constraints.maxWidth.toFloat()
         Column(
-            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
+            Modifier.fillMaxSize().padding(top = IosStatusBarHeight).navigationBarsPadding()
                 // Свайп вниз: из правого верхнего угла — пункт управления, в остальном месте — поиск (как в iOS)
                 .pointerInput(pager.currentPage) {
                     var startX = 0f; var startY = 0f; var total = 0f
@@ -115,12 +117,13 @@ fun HomeScreen(s: LauncherState) {
             }
             // «Поиск» как в iOS 26 + точки страниц
             Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.Center) {
-                Row(Modifier.glass(CircleShape, 0.10f).bounceClick { s.searchOpen = true }
-                    .padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.bounceClick { s.searchOpen = true }.clip(CircleShape).background(Color(0x59505055))
+                    .border(0.6.dp, Color(0x26FFFFFF), CircleShape)
+                    .padding(horizontal = 13.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (pager.currentPage in 1 until pages - 1) {
-                        Icon(Icons.Rounded.Search, null, tint = B.Text, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Rounded.Search, null, tint = B.Text, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(5.dp))
-                        Text("Поиск", color = B.Text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("Поиск", color = B.Text, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
                     } else {
                         repeat(pages) { i ->
                             Box(Modifier.padding(horizontal = 3.5.dp).size(7.dp).clip(CircleShape)
@@ -138,16 +141,16 @@ fun HomeScreen(s: LauncherState) {
 // ------------------------------------------------------------------ Страницы иконок
 @Composable
 private fun HomePage(s: LauncherState, items: List<HomeItem>, withWidgets: Boolean) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 22.dp).padding(top = 18.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 18.dp).padding(top = 14.dp)) {
         if (withWidgets) {
-            Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+            Row(Modifier.padding(horizontal = 6.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 StudioSquare(s, Modifier.weight(1f))
                 ClaudeSquare(s, Modifier.weight(1f))
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
         }
         items.chunked(COLS).forEach { row ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 9.dp)) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 row.forEach { it -> Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { HomeCell(s, it) } }
                 repeat(COLS - row.size) { Spacer(Modifier.weight(1f)) }
             }
@@ -183,7 +186,7 @@ private fun Badge(n: Int) {
 }
 
 @Composable
-fun AppCell(s: LauncherState, app: AppEntry, size: Int = 60, showLabel: Boolean = true) {
+fun AppCell(s: LauncherState, app: AppEntry, size: Int = 64, showLabel: Boolean = true) {
     var menu by remember { mutableStateOf(false) }
     Column(Modifier.bounceClick(onLongClick = { s.haptic(); menu = true }) { s.launch(app) },
         horizontalAlignment = Alignment.CenterHorizontally) {
@@ -249,8 +252,10 @@ fun SearchField(value: String, onChange: (String) -> Unit, hint: String, modifie
 @Composable
 private fun Dock(s: LauncherState) {
     Row(
-        Modifier.padding(horizontal = 14.dp).padding(bottom = 10.dp).fillMaxWidth()
-            .glass(RoundedCornerShape(38.dp), 0.10f).padding(vertical = 16.dp, horizontal = 6.dp),
+        Modifier.padding(horizontal = 10.dp).padding(bottom = 8.dp).fillMaxWidth()
+            .clip(RoundedCornerShape(42.dp)).background(Color(0x66505055))
+            .border(0.7.dp, Brush.verticalGradient(listOf(Color(0x40FFFFFF), Color(0x0DFFFFFF))), RoundedCornerShape(42.dp))
+            .padding(vertical = 18.dp, horizontal = 8.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
         s.dock.take(4).forEach { slot ->
@@ -275,10 +280,10 @@ private fun SearchOverlay(s: LauncherState) {
     val apps = if (q.isBlank()) s.apps.filter { it.pkg in s.config.homeApps }.take(8) else s.apps.filter { it.label.contains(q, true) }.take(12)
     val mods = if (q.isBlank()) emptyList() else Module.entries.filter { it.title.contains(q, true) }
     val sys = if (q.isBlank()) emptyList() else SysApp.entries.filter { it.title.contains(q, true) }
-    Column(Modifier.fillMaxSize().background(Color(0xE60E0F13)).statusBarsPadding().imePadding().padding(horizontal = 18.dp)) {
+    Column(Modifier.fillMaxSize().background(Color(0xE6000000)).padding(top = IosStatusBarHeight).imePadding().padding(horizontal = 18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 14.dp)) {
             SearchField(q, { q = it }, "Поиск", Modifier.weight(1f), focus, onMic = { s.searchOpen = false; s.startVoice() })
-            Text("Отменить", color = B.Coral, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+            Text("Отменить", color = B.Accent, fontSize = 17.sp,
                 modifier = Modifier.padding(start = 14.dp).clickable { s.searchOpen = false })
         }
         LazyColumn(Modifier.fillMaxSize().padding(top = 14.dp)) {

@@ -61,5 +61,6 @@ fun LauncherRoot(s: LauncherState) {
             ControlCenter(s) { s.controlOpen = false }
         }
         AnimatedVisibility(s.voiceOpen, enter = fadeIn(), exit = fadeOut()) { VoiceOverlay(s) }
+        IosStatusBar(s)
     }
 }

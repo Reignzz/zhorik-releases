@@ -34,6 +34,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
+        hideSystemStatusBar()
         if (android.os.Build.VERSION.SDK_INT >= 29) {
             window.isNavigationBarContrastEnforced = false
             window.isStatusBarContrastEnforced = false
@@ -89,8 +90,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Системную строку прячем — рисуем свою, как на iPhone (свайп сверху показывает системную/шторку) */
+    private fun hideSystemStatusBar() {
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
+            hide(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+            systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
     override fun onResume() {
         super.onResume()
+        hideSystemStatusBar()
         state.refreshDevice()
         // install.sh мог прислать новый provision.json, пока лаунчер работал
         if (Provisioning.importIfPresent(applicationContext, state.prefs, state.secrets)) {

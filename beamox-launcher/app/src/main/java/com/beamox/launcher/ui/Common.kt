@@ -126,19 +126,19 @@ fun ClaudeBurst(size: Dp, color: Color = Color.White) {
 }
 
 @Composable
-fun ModuleIcon(m: Module, size: Dp = 60.dp) {
+fun ModuleIcon(m: Module, size: Dp = 64.dp) {
     if (m == Module.CLAUDE) GlyphIcon(m.c1, m.c2, null, size) { ClaudeBurst(size * 0.62f) }
     else GlyphIcon(m.c1, m.c2, m.icon, size)
 }
 
 val LabelStyle = TextStyle(
-    fontFamily = Rounded, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
-    shadow = Shadow(Color(0x99000000), Offset(0f, 1f), 4f),
+    fontFamily = Rounded, fontSize = 12.5.sp, fontWeight = FontWeight.Normal, color = Color.White, letterSpacing = (-0.1).sp,
+    shadow = Shadow(Color(0x40000000), Offset(0f, 1f), 3f),
 )
 
 @Composable
 fun IconLabel(text: String) {
-    Text(text, style = LabelStyle, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+    Text(text, style = LabelStyle, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
 }
 
 /** Полноэкранный раздел с большим заголовком как в iOS */
@@ -149,17 +149,17 @@ fun ModuleSheet(
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().background(ScreenBg).background(PanelGlow).statusBarsPadding()) {
+    Column(Modifier.fillMaxSize().background(Color.Black).padding(top = IosStatusBarHeight)) {
         Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.clip(CircleShape).clickable { onBack() }.padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBackIos, "Назад", tint = B.Coral, modifier = Modifier.size(18.dp))
-                Text("Домой", color = B.Coral, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Icon(Icons.AutoMirrored.Rounded.ArrowBackIos, "Назад", tint = B.Accent, modifier = Modifier.size(20.dp))
+                Text("Назад", color = B.Accent, fontSize = 17.sp, fontWeight = FontWeight.Normal)
             }
             Spacer(Modifier.weight(1f))
             actions()
         }
-        Text(title, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = B.Text, letterSpacing = (-0.3).sp,
+        Text(title, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = B.Text, letterSpacing = (-0.6).sp,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 6.dp))
         content()
     }
@@ -171,8 +171,8 @@ val PanelGlow: Brush
 
 @Composable
 fun SectionTitle(t: String) {
-    Text(t.uppercase(), color = B.Faint, fontSize = 12.5.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.ExtraBold,
-        modifier = Modifier.padding(start = 34.dp, top = 22.dp, bottom = 7.dp))
+    Text(t.uppercase(), color = B.Faint, fontSize = 13.sp, fontWeight = FontWeight.Normal,
+        modifier = Modifier.padding(start = 34.dp, top = 24.dp, bottom = 7.dp))
 }
 
 /** Группа строк как в Настройках iOS */
@@ -203,23 +203,23 @@ fun RowItem(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(Brush.verticalGradient(listOf(iconColor, iconColor.darken()))),
+            Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(iconColor),
                 contentAlignment = Alignment.Center) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
             Spacer(Modifier.width(14.dp))
         } else if (emoji != null) {
             val (ic, col) = emojiIcon(emoji)
-            Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(Brush.verticalGradient(listOf(col, col.darken()))),
+            Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(col),
                 contentAlignment = Alignment.Center) { Icon(ic, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
             Spacer(Modifier.width(14.dp))
         }
         Column(Modifier.weight(1f)) {
-            Text(title, color = B.Text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (subtitle != null) Text(subtitle, color = B.Faint, fontSize = 13.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, color = B.Text, fontSize = 17.sp, fontWeight = FontWeight.Normal, letterSpacing = (-0.3).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (subtitle != null) Text(subtitle, color = B.Faint, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        if (trailing != null) Text(trailing, color = B.Faint, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
+        if (trailing != null) Text(trailing, color = B.Faint, fontSize = 17.sp, modifier = Modifier.padding(start = 8.dp))
         end?.invoke()
         if (onClick != null && end == null) {
-            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Color(0x55FFFFFF), modifier = Modifier.size(24.dp))
+            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Color(0x4DEBEBF5), modifier = Modifier.size(26.dp))
         }
     }
 }
@@ -230,7 +230,7 @@ fun Color.darken(f: Float = 0.78f) = Color(red * f, green * f, blue * f, alpha)
 fun Pill(text: String, color: Color = B.Coral, onClick: () -> Unit) {
     Box(Modifier.clip(CircleShape).background(color.copy(alpha = 0.18f)).clickable { onClick() }
         .padding(horizontal = 14.dp, vertical = 8.dp)) {
-        Text(text, color = color.lighten(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(text, color = color.lighten(0.15f), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -258,15 +258,14 @@ fun VSpace(h: Dp) = Spacer(Modifier.height(h))
 @Composable
 fun PanelCard(title: String, right: String = "", modifier: Modifier = Modifier, onClick: (() -> Unit)? = null,
               content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.padding(horizontal = 16.dp, vertical = 7.dp).fillMaxWidth()
-        .clip(RoundedCornerShape(24.dp)).background(Color(0x0EFFFFFF))
-        .border(1.dp, Color(0x13FFFFFF), RoundedCornerShape(24.dp))
+    Column(modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth()
+        .clip(RoundedCornerShape(26.dp)).background(B.Group)
         .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
         .padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 2.dp, bottom = 12.dp)) {
-            Text(title.uppercase(), color = B.Faint, fontSize = 12.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.ExtraBold)
+            Text(title, color = B.Text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.3).sp)
             Spacer(Modifier.weight(1f))
-            if (right.isNotBlank()) Text(right, color = B.Faint, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            if (right.isNotBlank()) Text(right, color = B.Faint, fontSize = 15.sp)
         }
         content()
     }

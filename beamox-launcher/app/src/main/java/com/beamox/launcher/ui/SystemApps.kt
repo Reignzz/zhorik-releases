@@ -100,7 +100,7 @@ fun LauncherState.openSys(a: SysApp) {
 }
 
 @Composable
-fun SysIcon(a: SysApp, size: Dp = 60.dp) {
+fun SysIcon(a: SysApp, size: Dp = 64.dp) {
     when (a) {
         SysApp.CALENDAR -> GlyphIcon(a.c1, a.c2, null, size) { CalendarFace(size) }
         SysApp.CLOCK -> GlyphIcon(a.c1, a.c2, null, size) { ClockFace(size * 0.86f) }

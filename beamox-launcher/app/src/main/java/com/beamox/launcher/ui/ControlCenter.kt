@@ -92,7 +92,7 @@ fun ControlCenter(s: LauncherState, onClose: () -> Unit) {
     Box(Modifier.fillMaxSize().background(Color(0xB30B0A0F))
         .pointerInput(Unit) { detectTapGestures { onClose() } }
         .pointerInput(Unit) { detectVerticalDragGestures { _, dy -> if (dy < -30) onClose() } }) {
-        Column(Modifier.statusBarsPadding().padding(horizontal = 22.dp).padding(top = 40.dp).fillMaxWidth()
+        Column(Modifier.padding(top = IosStatusBarHeight).padding(horizontal = 22.dp).padding(top = 30.dp).fillMaxWidth()
             .pointerInput(Unit) { detectTapGestures { } }, verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 // Связь: 4 круглые кнопки в одной плитке
