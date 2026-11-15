@@ -38,6 +38,7 @@ object BeamoxWallpaper {
 
             wm.setBitmap(home, null, true, WallpaperManager.FLAG_SYSTEM)
             wm.setBitmap(lock, null, true, WallpaperManager.FLAG_LOCK)
+            Unit
         }
     }
 
