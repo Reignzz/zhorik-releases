@@ -78,7 +78,7 @@ object B {
 }
 
 /** iOS-«суперэллипс» иконок */
-val Squircle = RoundedCornerShape(percent = 26)
+val Squircle: androidx.compose.ui.graphics.Shape = SuperellipseShape(5.0)
 val CardShape = RoundedCornerShape(26.dp)
 
 /** Стекло iOS 26: полупрозрачный слой + световой блик + тонкая рамка */

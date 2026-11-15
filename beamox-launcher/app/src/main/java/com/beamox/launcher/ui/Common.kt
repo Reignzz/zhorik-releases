@@ -55,6 +55,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -178,9 +180,15 @@ fun SectionTitle(t: String) {
 /** Группа строк как в Настройках iOS */
 @Composable
 fun Group(content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(26.dp))
-        .background(B.Group), content = content)
+    // Карточка как в Настройках iOS 26; разделитель над первой строкой закрываем
+    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp))
+        .background(B.Group)
+        .drawWithContent { drawContent(); drawRect(B.Group, size = androidx.compose.ui.geometry.Size(size.width, 1.5.dp.toPx())) },
+        content = content)
 }
+
+/** Поисковый запрос экрана настроек — строки, не подходящие под него, скрываются */
+val LocalRowFilter = androidx.compose.runtime.compositionLocalOf { "" }
 
 /**
  * Строка как в Настройках iOS: цветной квадрат с символом, заголовок, значение, шеврон.
@@ -197,30 +205,39 @@ fun RowItem(
     iconColor: Color = B.Coral,
     end: @Composable (() -> Unit)? = null,
 ) {
+    val q = LocalRowFilter.current
+    if (q.isNotBlank() && !title.contains(q, true) && subtitle?.contains(q, true) != true) return
+    val hasIcon = icon != null || emoji != null
     Row(
-        Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
-            .padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+        Modifier.fillMaxWidth().heightIn(min = 52.dp)
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
+            // разделитель iOS: от начала текста до правого края
+            .drawBehind {
+                val x = if (hasIcon) 57.dp.toPx() else 16.dp.toPx()
+                drawLine(Color(0xFF38383A), androidx.compose.ui.geometry.Offset(x, 0f),
+                    androidx.compose.ui.geometry.Offset(size.width, 0f), strokeWidth = 0.5.dp.toPx())
+            }
+            .padding(start = 14.dp, end = 16.dp, top = 9.dp, bottom = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(iconColor),
-                contentAlignment = Alignment.Center) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
-            Spacer(Modifier.width(14.dp))
+            Box(Modifier.size(28.dp).clip(SuperellipseShape(4.2)).background(iconColor),
+                contentAlignment = Alignment.Center) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(19.dp)) }
+            Spacer(Modifier.width(15.dp))
         } else if (emoji != null) {
             val (ic, col) = emojiIcon(emoji)
-            Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(col),
-                contentAlignment = Alignment.Center) { Icon(ic, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
-            Spacer(Modifier.width(14.dp))
-        }
+            Box(Modifier.size(28.dp).clip(SuperellipseShape(4.2)).background(col),
+                contentAlignment = Alignment.Center) { Icon(ic, null, tint = Color.White, modifier = Modifier.size(19.dp)) }
+            Spacer(Modifier.width(15.dp))
+        } else Spacer(Modifier.width(2.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, color = B.Text, fontSize = 17.sp, fontWeight = FontWeight.Normal, letterSpacing = (-0.3).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (subtitle != null) Text(subtitle, color = B.Faint, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, color = B.Text, fontSize = 17.sp, fontWeight = FontWeight.Normal, letterSpacing = (-0.4).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (subtitle != null) Text(subtitle, color = Color(0x99EBEBF5), fontSize = 14.sp, letterSpacing = (-0.2).sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        if (trailing != null) Text(trailing, color = B.Faint, fontSize = 17.sp, modifier = Modifier.padding(start = 8.dp))
+        if (trailing != null) Text(trailing, color = Color(0x99EBEBF5), fontSize = 17.sp, letterSpacing = (-0.4).sp,
+            maxLines = 1, modifier = Modifier.padding(start = 8.dp))
         end?.invoke()
-        if (onClick != null && end == null) {
-            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Color(0x4DEBEBF5), modifier = Modifier.size(26.dp))
-        }
+        if (onClick != null && end == null) IosChevron()
     }
 }
 

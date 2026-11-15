@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.getValue
@@ -38,7 +39,21 @@ fun LauncherRoot(s: LauncherState) {
             else -> s.screen = null
         }
     }
+    // Обои рисует сам лаунчер (те же, что на системном экране) — чтобы стекло могло их размывать
+    val cfg = androidx.compose.ui.platform.LocalConfiguration.current
+    val dens = androidx.compose.ui.platform.LocalDensity.current.density
+    val wpW = (cfg.screenWidthDp * dens).toInt().coerceAtLeast(360)
+    val wpH = ((cfg.screenHeightDp + 120) * dens).toInt().coerceAtLeast(720)
+    val wallpaper = androidx.compose.runtime.remember(wpW, wpH) {
+        val custom = runCatching { java.io.File(s.ctx.getExternalFilesDir(null), "homescreen.png") }.getOrNull()
+        val bmp = if (custom != null && custom.exists()) android.graphics.BitmapFactory.decodeFile(custom.path)
+        else com.beamox.launcher.core.BeamoxWallpaper.draw(wpW, wpH, s.config.company, s.config.tagline, big = false)
+        android.graphics.Bitmap.createScaledBitmap(bmp, wpW, wpH, true).asImageBitmap()
+    }
+    androidx.compose.runtime.CompositionLocalProvider(LocalWallpaper provides wallpaper) {
     Box(Modifier.fillMaxSize()) {
+        androidx.compose.foundation.Image(wallpaper, null, Modifier.fillMaxSize(),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop, alignment = androidx.compose.ui.Alignment.TopStart)
         val overlay = s.controlOpen || s.voiceOpen || s.screen != null
         val blur by androidx.compose.animation.core.animateDpAsState(if (overlay) 28.dp else 0.dp, label = "blur")
         Box(Modifier.fillMaxSize().blur(blur)) { HomeScreen(s) }
@@ -62,5 +77,6 @@ fun LauncherRoot(s: LauncherState) {
         }
         AnimatedVisibility(s.voiceOpen, enter = fadeIn(), exit = fadeOut()) { VoiceOverlay(s) }
         IosStatusBar(s)
+    }
     }
 }

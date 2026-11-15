@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -91,8 +93,10 @@ fun HomeScreen(s: LauncherState) {
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val w = constraints.maxWidth.toFloat()
-        Column(
-            Modifier.fillMaxSize().padding(top = IosStatusBarHeight).navigationBarsPadding()
+        // Масштаб: точки iPhone (ширина 430) → dp этого экрана
+        val k = maxWidth.value / 430f
+        Box(
+            Modifier.fillMaxSize().navigationBarsPadding()
                 // Свайп вниз: из правого верхнего угла — пункт управления, в остальном месте — поиск (как в iOS)
                 .pointerInput(pager.currentPage) {
                     var startX = 0f; var startY = 0f; var total = 0f
@@ -107,71 +111,74 @@ fun HomeScreen(s: LauncherState) {
                     )
                 }
         ) {
-            HorizontalPager(state = pager, modifier = Modifier.weight(1f), beyondViewportPageCount = 1) { page ->
+            HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
                 when {
-                    page == 0 -> TodayPage(s)
-                    page == pages - 1 -> LibraryPage(s)
-                    page == 1 -> HomePage(s, first, withWidgets = true)
-                    else -> HomePage(s, rest[page - 2], withWidgets = false)
+                    page == 0 -> Box(Modifier.fillMaxSize().padding(top = IosStatusBarHeight, bottom = (150 * k).dp)) { TodayPage(s) }
+                    page == pages - 1 -> Box(Modifier.fillMaxSize().padding(top = IosStatusBarHeight, bottom = (150 * k).dp)) { LibraryPage(s) }
+                    page == 1 -> HomePage(s, first, withWidgets = true, k = k)
+                    else -> HomePage(s, rest[page - 2], withWidgets = false, k = k)
                 }
             }
-            // «Поиск» как в iOS 26 + точки страниц
-            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.Center) {
-                Row(Modifier.bounceClick { s.searchOpen = true }.clip(CircleShape).background(Color(0x59505055))
-                    .border(0.6.dp, Color(0x26FFFFFF), CircleShape)
-                    .padding(horizontal = 13.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (pager.currentPage in 1 until pages - 1) {
-                        Icon(Icons.Rounded.Search, null, tint = B.Text, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Text("Поиск", color = B.Text, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
-                    } else {
-                        repeat(pages) { i ->
-                            Box(Modifier.padding(horizontal = 3.5.dp).size(7.dp).clip(CircleShape)
-                                .background(if (pager.currentPage == i) Color.White else Color.White.copy(alpha = 0.3f)))
+            // «Поиск» (центр в 170 pt от низа) / точки страниц
+            Box(Modifier.align(Alignment.BottomCenter).padding(bottom = ((170 - 15) * k).dp)) {
+                LiquidGlass(CircleShape, Modifier.height((30 * k).dp).bounceClick { s.searchOpen = true },
+                    tint = Color(0x33505055), contentAlignment = Alignment.Center) {
+                    Row(Modifier.padding(horizontal = (13 * k).dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (pager.currentPage in 1 until pages - 1) {
+                            Icon(Icons.Rounded.Search, null, tint = B.Text, modifier = Modifier.size((15 * k).dp))
+                            Spacer(Modifier.width((5 * k).dp))
+                            Text("Поиск", color = B.Text, fontSize = (15 * k).sp, fontWeight = FontWeight.Medium, letterSpacing = (-0.2).sp)
+                        } else {
+                            repeat(pages) { i ->
+                                Box(Modifier.padding(horizontal = (4 * k).dp).size((7 * k).dp).clip(CircleShape)
+                                    .background(if (pager.currentPage == i) Color.White else Color.White.copy(alpha = 0.3f)))
+                            }
                         }
                     }
                 }
             }
-            Dock(s)
+            Dock(s, k, Modifier.align(Alignment.BottomCenter))
         }
         AnimatedVisibility(s.searchOpen, enter = fadeIn(), exit = fadeOut()) { SearchOverlay(s) }
     }
 }
 
-// ------------------------------------------------------------------ Страницы иконок
+// ------------------------------------------------------------------ Страницы иконок (точные размеры iPhone)
 @Composable
-private fun HomePage(s: LauncherState, items: List<HomeItem>, withWidgets: Boolean) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 18.dp).padding(top = 14.dp)) {
+private fun HomePage(s: LauncherState, items: List<HomeItem>, withWidgets: Boolean, k: Float) {
+    Box(Modifier.fillMaxSize()) {
+        var top = 88f
         if (withWidgets) {
-            Row(Modifier.padding(horizontal = 6.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                StudioSquare(s, Modifier.weight(1f))
-                ClaudeSquare(s, Modifier.weight(1f))
-            }
-            Spacer(Modifier.height(12.dp))
+            Box(Modifier.offset(x = (28 * k).dp, y = (88 * k).dp).width((177 * k).dp)) { StudioSquare(s, Modifier.fillMaxWidth()) }
+            Box(Modifier.offset(x = ((28 + 177 + 23) * k).dp, y = (88 * k).dp).width((177 * k).dp)) { ClaudeSquare(s, Modifier.fillMaxWidth()) }
+            top = 304f
         }
-        items.chunked(COLS).forEach { row ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                row.forEach { it -> Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { HomeCell(s, it) } }
-                repeat(COLS - row.size) { Spacer(Modifier.weight(1f)) }
+        items.chunked(COLS).forEachIndexed { r, row ->
+            row.forEachIndexed { c, item ->
+                // ячейка шириной 99 pt, иконка 69 pt по центру ячейки
+                Box(Modifier.offset(x = ((31 - 15) * k + c * 99 * k).dp, y = ((top + r * 108) * k).dp).width((99 * k).dp),
+                    contentAlignment = Alignment.TopCenter) {
+                    HomeCell(s, item, size = (69 * k).dp)
+                }
             }
         }
     }
 }
 
 @Composable
-fun HomeCell(s: LauncherState, item: HomeItem, label: Boolean = true) {
+fun HomeCell(s: LauncherState, item: HomeItem, label: Boolean = true, size: Dp = 64.dp) {
     when (item) {
-        is HomeItem.Mod -> ModuleCell(s, item.m, label)
-        is HomeItem.Sys -> SysCell(s, item.a, label)
-        is HomeItem.App -> AppCell(s, item.app, showLabel = label)
+        is HomeItem.Mod -> ModuleCell(s, item.m, label, size)
+        is HomeItem.Sys -> SysCell(s, item.a, label, size)
+        is HomeItem.App -> AppCell(s, item.app, size = size.value.toInt(), showLabel = label)
     }
 }
 
 @Composable
-fun ModuleCell(s: LauncherState, m: Module, label: Boolean = true) {
+fun ModuleCell(s: LauncherState, m: Module, label: Boolean = true, size: Dp = 64.dp) {
     Column(Modifier.bounceClick { s.haptic(); s.open(m) }, horizontalAlignment = Alignment.CenterHorizontally) {
         Box {
-            ModuleIcon(m)
+            ModuleIcon(m, size)
             if (m == Module.MAIL) s.unreadTotal?.takeIf { it > 0 }?.let { Badge(it) }
         }
         if (label) IconLabel(m.title)
@@ -250,22 +257,21 @@ fun SearchField(value: String, onChange: (String) -> Unit, hint: String, modifie
 
 // ------------------------------------------------------------------ Док
 @Composable
-private fun Dock(s: LauncherState) {
-    Row(
-        Modifier.padding(horizontal = 10.dp).padding(bottom = 8.dp).fillMaxWidth()
-            .clip(RoundedCornerShape(42.dp)).background(Color(0x66505055))
-            .border(0.7.dp, Brush.verticalGradient(listOf(Color(0x40FFFFFF), Color(0x0DFFFFFF))), RoundedCornerShape(42.dp))
-            .padding(vertical = 18.dp, horizontal = 8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-    ) {
-        s.dock.take(4).forEach { slot ->
-            when {
-                slot.startsWith("module:") -> runCatching { Module.valueOf(slot.removePrefix("module:")) }.getOrNull()
-                    ?.let { ModuleCell(s, it, label = false) }
-                slot.startsWith("pkg:") -> s.apps.firstOrNull { it.pkg == slot.removePrefix("pkg:") }
-                    ?.let { AppCell(s, it, showLabel = false) }
-                slot.startsWith("sys:") -> runCatching { SysApp.valueOf(slot.removePrefix("sys:")) }.getOrNull()
-                    ?.let { SysCell(s, it, label = false) }
+private fun Dock(s: LauncherState, k: Float, modifier: Modifier) {
+    // Док iPhone: высота 116 pt, отступ 14 pt по бокам и 16 pt снизу, скругление 42 pt, иконки 70 pt
+    LiquidGlass(RoundedCornerShape((42 * k).dp),
+        modifier.padding(start = (14 * k).dp, end = (14 * k).dp, bottom = (16 * k).dp).fillMaxWidth().height((116 * k).dp),
+        tint = Color(0x26606065), contentAlignment = Alignment.CenterStart) {
+        s.dock.take(4).forEachIndexed { i, slot ->
+            Box(Modifier.offset(x = ((38 - 14 - 12) * k + i * 94.7f * k).dp).width((94 * k).dp), contentAlignment = Alignment.Center) {
+                when {
+                    slot.startsWith("module:") -> runCatching { Module.valueOf(slot.removePrefix("module:")) }.getOrNull()
+                        ?.let { ModuleCell(s, it, label = false, size = (70 * k).dp) }
+                    slot.startsWith("pkg:") -> s.apps.firstOrNull { it.pkg == slot.removePrefix("pkg:") }
+                        ?.let { AppCell(s, it, size = (70 * k).toInt(), showLabel = false) }
+                    slot.startsWith("sys:") -> runCatching { SysApp.valueOf(slot.removePrefix("sys:")) }.getOrNull()
+                        ?.let { SysCell(s, it, label = false, size = (70 * k).dp) }
+                }
             }
         }
     }

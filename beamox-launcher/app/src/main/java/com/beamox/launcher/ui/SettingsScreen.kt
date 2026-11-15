@@ -6,6 +6,19 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.AirplanemodeActive
+import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.material.icons.rounded.Bluetooth
+import androidx.compose.material.icons.rounded.CellTower
+import androidx.compose.material.icons.rounded.ToggleOn
+import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -88,30 +101,71 @@ fun SettingsScreen(s: LauncherState) {
     var modelPick by remember { mutableStateOf(false) }
     var tick by remember { mutableIntStateOf(0) }
     var status by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf("") }
 
     fun start(i: Intent) = AppRepository.safeStart(s.act, i)
-    fun mask(v: String) = if (v.isBlank()) "не задан" else "••••" + v.takeLast(4)
+    fun mask(v: String) = if (v.isBlank()) "Не задан" else "••••" + v.takeLast(4)
+    val airplane = runCatching { Settings.Global.getInt(s.ctx.contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) == 1 }.getOrDefault(false)
+    val wifiOn = runCatching { (s.ctx.applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as android.net.wifi.WifiManager).isWifiEnabled }.getOrDefault(true)
+    val btOn = runCatching { (s.ctx.getSystemService(android.content.Context.BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager).adapter?.isEnabled == true }.getOrDefault(true)
 
-    ModuleSheet("Настройки", onBack = { s.goHome() }) {
-        tick.let { }
-        LazyColumn(contentPadding = ListPadding) {
-            if (status.isNotBlank()) item { Hint(status) }
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalRowFilter provides query) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(top = IosStatusBarHeight, bottom = 140.dp)) {
             item {
-                VSpace(8.dp)
+                tick.let { }
+                // Большой заголовок как в iOS (без кнопки «Назад»: назад — жестом/кнопкой телефона)
+                Text("Настройки", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp,
+                    modifier = Modifier.padding(start = 18.dp, top = 52.dp, bottom = 12.dp).clickableNoRipple { s.goHome() })
+                if (status.isNotBlank()) Hint(status)
+            }
+            // --- Профиль (как Apple Account)
+            item {
                 Group {
-                    RowItem("Панель Beamox", (s.prefs.dashboardUrl ?: "").ifBlank { "не подключена — нажмите, чтобы вставить ссылку" },
-                        icon = Icons.Rounded.Link, iconColor = B.Coral, onClick = {
-                            edit = EditField("Ссылка на панель («Генератор охватов»)", s.prefs.dashboardUrl ?: "", false) { s.setPanelLink(it); tick++ }
-                        })
-                    s.dashError?.let { RowItem(it, icon = Icons.Rounded.Info, iconColor = cRed) }
+                    if (query.isBlank()) Row(Modifier.fillMaxWidth().clickableNoRipple {
+                        edit = EditField("Ссылка на панель («Генератор охватов»)", s.prefs.dashboardUrl ?: "", false) { s.setPanelLink(it); tick++ }
+                    }.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(62.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF2B2B2E), Color(0xFF111113)))),
+                            contentAlignment = Alignment.Center) { ClaudeBurst(36.dp, B.Coral) }
+                        Column(Modifier.weight(1f).padding(start = 16.dp)) {
+                            Text(s.config.company, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.4).sp)
+                            Text(if (s.dash != null) "Панель, Claude, почты и ещё" else "Подключите панель Beamox", color = Color(0x99EBEBF5),
+                                fontSize = 15.sp, letterSpacing = (-0.2).sp)
+                        }
+                        IosChevron()
+                    }
+                    RowItem("Команда", icon = Icons.Rounded.Groups,
+                        iconColor = Color(0xFF5E5CE6), onClick = { s.open(Module.OFFICE) })
                 }
             }
+            item { VSpace(36.dp) }
+            // --- Связь (как Airplane / Wi-Fi / Bluetooth / Mobile / Hotspot / Battery)
             item {
-                SectionTitle("Телефон")
                 Group {
-                    RowItem("Очистка от рекламы", "${s.hidden.size} скрыто · удалить в один тап", icon = Icons.Rounded.CleaningServices,
-                        iconColor = cRed, onClick = { s.cleanupOpen = true })
-                    RowItem("Главный экран — Beamox", icon = Icons.Rounded.Home, iconColor = cBlue, onClick = {
+                    RowItem("Авиарежим", icon = Icons.Rounded.AirplanemodeActive, iconColor = cOrange, end = {
+                        IosSwitch(airplane) { start(Intent(Settings.ACTION_AIRPLANE_MODE_SETTINGS)) }
+                    })
+                    RowItem("Wi-Fi", trailing = if (wifiOn) "Вкл." else "Выкл.", icon = Icons.Rounded.Wifi, iconColor = cBlue, onClick = {
+                        start(if (Build.VERSION.SDK_INT >= 29) Intent(Settings.Panel.ACTION_WIFI) else Intent(Settings.ACTION_WIFI_SETTINGS))
+                    })
+                    RowItem("Bluetooth", trailing = if (btOn) "Вкл." else "Выкл.", icon = Icons.Rounded.Bluetooth, iconColor = cBlue,
+                        onClick = { start(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) })
+                    RowItem("Сотовая связь", icon = Icons.Rounded.CellTower, iconColor = cGreen,
+                        onClick = { start(Intent(Settings.ACTION_DATA_ROAMING_SETTINGS)) })
+                    RowItem("Режим модема", icon = Icons.Rounded.Link, iconColor = cGreen,
+                        onClick = { start(Intent("android.settings.TETHER_SETTINGS")) })
+                    RowItem("Аккумулятор", trailing = "${s.device.batteryPct}%", icon = Icons.Rounded.BatteryFull, iconColor = cGreen,
+                        onClick = { start(Intent(Intent.ACTION_POWER_USAGE_SUMMARY)) })
+                }
+            }
+            item { VSpace(36.dp) }
+            // --- Основные
+            item {
+                Group {
+                    RowItem("Основные", icon = Icons.Rounded.Settings, iconColor = cGray, onClick = { s.openSys(SysApp.SYSTEM_SETTINGS) })
+                    RowItem("Пункт управления", icon = Icons.Rounded.ToggleOn, iconColor = cGray, onClick = { s.controlOpen = true })
+                    RowItem("Экран и яркость", icon = Icons.Rounded.LightMode, iconColor = cBlue, onClick = { start(Intent(Settings.ACTION_DISPLAY_SETTINGS)) })
+                    RowItem("Главный экран — Beamox", icon = Icons.Rounded.Apps, iconColor = cIndigo, onClick = {
                         if (Build.VERSION.SDK_INT >= 29) {
                             val rm = s.act.getSystemService(RoleManager::class.java)
                             val a = s.activity
@@ -120,61 +174,66 @@ fun SettingsScreen(s: LauncherState) {
                             else start(Intent(Settings.ACTION_HOME_SETTINGS))
                         } else start(Intent(Settings.ACTION_HOME_SETTINGS))
                     })
-                    RowItem("Жесты вместо кнопок", "Как на iPhone: свайп снизу — домой", icon = Icons.Rounded.Swipe, iconColor = cIndigo, onClick = {
-                        start(Intent("android.settings.GESTURES_SETTINGS")).let { ok -> if (!ok) start(Intent(Settings.ACTION_SETTINGS)) }
+                    RowItem("Жесты как на iPhone", icon = Icons.Rounded.Swipe, iconColor = cBlue, onClick = {
+                        if (!start(Intent("android.settings.GESTURES_SETTINGS"))) start(Intent(Settings.ACTION_SETTINGS))
                     })
-                    RowItem("Заставка Beamox", "Экран блокировки и обои", icon = Icons.Rounded.Wallpaper, iconColor = cTeal, onClick = {
+                    RowItem("Обои", icon = Icons.Rounded.Wallpaper, iconColor = cTeal, onClick = {
                         s.scope.launch {
                             status = BeamoxWallpaper.apply(s.ctx, s.config.company, s.config.tagline)
-                                .fold({ "✓ Заставка Beamox установлена" }, { "Ошибка: ${it.message}" })
+                                .fold({ "Обои и экран блокировки Beamox установлены" }, { "Ошибка: ${it.message}" })
                         }
                     })
-                    RowItem("Звуки Beamox", "Рингтон, уведомления, будильник", icon = Icons.Rounded.MusicNote, iconColor = cPink, onClick = {
+                    RowItem("Уведомления", icon = Icons.Rounded.Notifications, iconColor = cRed, onClick = {
+                        start(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, s.ctx.packageName))
+                    })
+                    RowItem("Звуки, тактильные сигналы", icon = Icons.AutoMirrored.Rounded.VolumeUp, iconColor = cPink, onClick = {
                         s.scope.launch {
                             status = Sounds.install(s.ctx).fold({ it }, { "Ошибка: ${it.message}" })
                             if (!Sounds.canWriteSettings(s.ctx))
                                 start(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${s.ctx.packageName}")))
                         }
                     })
-                    RowItem("Пункт управления", "Свайп вниз из правого угла", icon = Icons.Rounded.Tune, iconColor = cGray,
-                        onClick = { s.controlOpen = true })
+                    RowItem("Хранилище", trailing = "${"%.0f".format(s.device.storageFreeGb)} ГБ", icon = Icons.Rounded.Storage, iconColor = cGray,
+                        onClick = { start(Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS)) })
+                    RowItem("Очистка от рекламы", trailing = "${s.hidden.size}", icon = Icons.Rounded.CleaningServices, iconColor = cRed,
+                        onClick = { s.cleanupOpen = true })
                 }
             }
+            item { VSpace(36.dp) }
+            // --- Siri-подобное: голос и Claude
             item {
-                SectionTitle("Голос")
                 Group {
-                    RowItem("«Привет, Бимокс»", "Слушать при включённом экране", icon = Icons.Rounded.Mic, iconColor = cPurple, end = {
-                        Switch(s.handsFree, { s.setHandsFreeMode(it) }, colors = SwitchDefaults.colors(checkedTrackColor = cGreen))
+                    RowItem("«Привет, Бимокс»", icon = Icons.Rounded.Mic, iconColor = Color(0xFF1C1C1E), end = {
+                        IosSwitch(s.handsFree) { s.setHandsFreeMode(it) }
                     })
-                    RowItem("Озвучивать ответы", icon = Icons.AutoMirrored.Rounded.VolumeUp, iconColor = cOrange, end = {
+                    RowItem("Озвучивать ответы", icon = Icons.Rounded.RecordVoiceOver, iconColor = cOrange, end = {
                         var on by remember { mutableStateOf(s.prefs.speakAnswers) }
-                        Switch(on, { on = it; s.prefs.speakAnswers = it }, colors = SwitchDefaults.colors(checkedTrackColor = cGreen))
+                        IosSwitch(on) { on = it; s.prefs.speakAnswers = it }
                     })
-                    RowItem("Ассистент по умолчанию", "Вызов долгим нажатием/жестом", icon = Icons.Rounded.SmartToy, iconColor = cIndigo,
+                    RowItem("Ассистент по умолчанию", icon = Icons.Rounded.SmartToy, iconColor = cIndigo,
                         onClick = { start(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) })
-                    RowItem("Проверить голос", icon = Icons.Rounded.RecordVoiceOver, iconColor = cBlue, onClick = { s.startVoice() })
-                }
-            }
-            item {
-                SectionTitle("Claude")
-                Group {
-                    RowItem("Ключ API", trailing = mask(s.secrets.claudeKey), icon = Icons.Rounded.Key, iconColor = B.Coral, onClick = {
+                    RowItem("Ключ Claude", trailing = mask(s.secrets.claudeKey), icon = Icons.Rounded.Key, iconColor = B.Coral, onClick = {
                         edit = EditField("Ключ Claude API (sk-ant-…)", "", true) { s.secrets.claudeKey = it; tick++ }
                     })
-                    RowItem("Модель", ClaudeModels.all.firstOrNull { it.first == s.claudeModel() }?.second ?: s.claudeModel(),
+                    RowItem("Модель", trailing = ClaudeModels.all.firstOrNull { it.first == s.claudeModel() }?.second?.substringBefore(" —") ?: s.claudeModel(),
                         icon = Icons.Rounded.Psychology, iconColor = cPurple, onClick = { modelPick = true })
                     RowItem("Очистить переписку", icon = Icons.Rounded.Delete, iconColor = cGray, onClick = { s.clearChat(); status = "Переписка очищена" })
                 }
             }
+            item { VSpace(36.dp) }
+            // --- Beamox: панель, студия, почты
             item {
-                SectionTitle("Студия и почта")
                 Group {
-                    RowItem("Адрес студии", (s.prefs.studioUrl ?: "").ifBlank { s.config.studioUrl }.ifBlank { "не задан" },
+                    RowItem("Панель Beamox", trailing = if (s.prefs.dashboardUrl.isNullOrBlank()) "Нет" else "Подключена",
+                        icon = Icons.Rounded.BarChart, iconColor = cGreen, onClick = {
+                            edit = EditField("Ссылка на панель («Генератор охватов»)", s.prefs.dashboardUrl ?: "", false) { s.setPanelLink(it); tick++ }
+                        })
+                    RowItem("Студия роликов", trailing = if ((s.prefs.studioUrl ?: s.config.studioUrl).isBlank()) "Нет" else "Есть",
                         icon = Icons.Rounded.Movie, iconColor = cRed, onClick = {
                             edit = EditField("Адрес студии (https://…)", s.prefs.studioUrl ?: s.config.studioUrl, false) { s.prefs.studioUrl = it.trim() }
                         })
                     s.config.mailboxes.forEach { mb ->
-                        RowItem(mb.name, mb.address + if (s.secrets.mailPassword(mb.address).isBlank()) " · нет пароля" else " · ✓",
+                        RowItem(mb.name, trailing = if (s.secrets.mailPassword(mb.address).isBlank()) "Нет пароля" else "",
                             icon = Icons.Rounded.Email, iconColor = cBlue, onClick = {
                                 edit = EditField("Пароль приложения для ${mb.address}", "", true) {
                                     s.secrets.setMailPassword(mb.address, it); s.refreshMail(); tick++
@@ -183,30 +242,14 @@ fun SettingsScreen(s: LauncherState) {
                     }
                 }
             }
+            item { VSpace(36.dp) }
             item {
-                SectionTitle("Система")
                 Group {
-                    RowItem("Настройки Android", icon = Icons.Rounded.Settings, iconColor = cGray, onClick = { s.openSys(SysApp.SYSTEM_SETTINGS) })
-                    RowItem("Уведомления", icon = Icons.Rounded.Notifications, iconColor = cRed, onClick = {
-                        start(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, s.ctx.packageName))
-                    })
-                    RowItem("Экран и яркость", icon = Icons.Rounded.LightMode, iconColor = cBlue, onClick = { start(Intent(Settings.ACTION_DISPLAY_SETTINGS)) })
-                    RowItem("Аккумулятор", trailing = "${s.device.batteryPct}%", icon = Icons.Rounded.BatteryFull, iconColor = cGreen,
-                        onClick = { start(Intent(Intent.ACTION_POWER_USAGE_SUMMARY)) })
-                    RowItem("Хранилище", trailing = "${"%.0f".format(s.device.storageFreeGb)} ГБ своб.", icon = Icons.Rounded.Storage, iconColor = cGray,
-                        onClick = { start(Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS)) })
-                    RowItem("Приложения", icon = Icons.Rounded.Apps, iconColor = cIndigo, onClick = { start(Intent(Settings.ACTION_APPLICATION_SETTINGS)) })
-                }
-            }
-            item {
-                SectionTitle("Об этом лаунчере")
-                Group {
-                    RowItem("Версия", trailing = BuildConfig.VERSION_NAME, icon = Icons.Rounded.Info, iconColor = cGray)
-                    RowItem("Проверить обновления", icon = Icons.Rounded.Download, iconColor = cBlue, onClick = {
+                    RowItem("Обновление ПО", trailing = BuildConfig.VERSION_NAME, icon = Icons.Rounded.Download, iconColor = cGray, onClick = {
                         status = "Проверяю…"
                         s.scope.launch {
                             Updater.check().fold({ info ->
-                                if (info == null) status = "✓ Установлена последняя версия"
+                                if (info == null) status = "Установлена последняя версия"
                                 else {
                                     status = "Скачиваю версию ${info.versionName}…"
                                     Updater.downloadAndInstall(s.ctx, info).onFailure { status = "Ошибка: ${it.message}" }
@@ -214,9 +257,25 @@ fun SettingsScreen(s: LauncherState) {
                             }, { status = "Не удалось проверить: ${it.message}" })
                         }
                     })
-                    RowItem("Обновить конфигурацию", icon = Icons.Rounded.Refresh, iconColor = cGreen,
+                    RowItem("Обновить данные", icon = Icons.Rounded.Refresh, iconColor = cGreen,
                         onClick = { s.reloadConfig(); s.refreshStats(); status = "Обновлено" })
                 }
+            }
+        }
+        }
+        // Плавающий поиск iOS 26 (Liquid Glass) с микрофоном
+        LiquidGlass(CircleShape, Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+            .padding(start = 28.dp, end = 28.dp, bottom = 24.dp).fillMaxWidth().height(48.dp),
+            tint = Color(0x40303034), contentAlignment = Alignment.CenterStart) {
+            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Search, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                Box(Modifier.weight(1f).padding(start = 10.dp)) {
+                    if (query.isEmpty()) Text("Поиск", color = Color(0x99EBEBF5), fontSize = 17.sp)
+                    androidx.compose.foundation.text.BasicTextField(query, { query = it }, singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 17.sp, fontFamily = Rounded),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(B.Accent), modifier = Modifier.fillMaxWidth())
+                }
+                Icon(Icons.Rounded.Mic, "Голос", tint = Color.White, modifier = Modifier.size(22.dp).clickableNoRipple { s.startVoice() })
             }
         }
     }

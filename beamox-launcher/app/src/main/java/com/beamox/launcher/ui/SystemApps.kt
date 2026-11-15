@@ -163,9 +163,9 @@ private fun PhotosFlower(size: Dp) {
 }
 
 @Composable
-fun SysCell(s: LauncherState, a: SysApp, label: Boolean = true) {
+fun SysCell(s: LauncherState, a: SysApp, label: Boolean = true, size: Dp = 64.dp) {
     Column(Modifier.bounceClick { s.haptic(); s.openSys(a) }, horizontalAlignment = Alignment.CenterHorizontally) {
-        SysIcon(a)
+        SysIcon(a, size)
         if (label) IconLabel(a.title)
     }
 }
