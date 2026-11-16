@@ -17,9 +17,14 @@ data class SetupState(
     val overlay: Boolean = true,
     val notifications: Boolean = true,
     val panel: Boolean = true,
+    /** «Спец. возможности → Beamox: островок и шторки» */
+    val access: Boolean = true,
+    /** Владелец уже открыл настройки клавиатуры (вибрация) */
+    val keyboard: Boolean = true,
 ) {
-    val islandReady get() = overlay && notifications
-    val missing get() = listOf(defaultHome, gestures, overlay, notifications, panel).count { !it }
+    /** Капсуле нужно окно: спец. возможности (лучше) или «поверх приложений» */
+    val islandReady get() = access || overlay
+    val missing get() = listOf(defaultHome, gestures, access, notifications, keyboard, panel).count { !it }
 }
 
 object PhoneSetup {
@@ -29,7 +34,48 @@ object PhoneSetup {
         overlay = Settings.canDrawOverlays(ctx),
         notifications = hasNotificationAccess(ctx),
         panel = !panelUrl.isNullOrBlank(),
+        access = com.beamox.launcher.island.BeamoxAccess.isEnabled(ctx),
+        keyboard = ctx.getSharedPreferences("island", Context.MODE_PRIVATE).getBoolean("kbd", false),
     )
+
+    /** «Спец. возможности» — сразу на нашу службу, если система умеет. */
+    fun openAccessibility(ctx: Context) {
+        toast(ctx, "Включите «Beamox: островок и шторки». Если серое — «О приложении» → ⋮ → «Разрешить ограниченные настройки»")
+        if (Build.VERSION.SDK_INT >= 31) {
+            val i = Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
+                .putExtra(Intent.EXTRA_COMPONENT_NAME, ComponentName(ctx, com.beamox.launcher.island.BeamoxAccess::class.java).flattenToString())
+            if (start(ctx, i)) return
+        }
+        start(ctx, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+    }
+
+    /** Настройки текущей клавиатуры (Gboard и др.): там «Вибрация при нажатии клавиш» и тема. */
+    fun openKeyboardSettings(ctx: Context) {
+        ctx.getSharedPreferences("island", Context.MODE_PRIVATE).edit().putBoolean("kbd", true).apply()
+        toast(ctx, "Выключите «Вибрация при нажатии клавиш». Вид как у iPhone: Тема → светлая с контуром клавиш")
+        val id = Settings.Secure.getString(ctx.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD).orEmpty()
+        val imm = ctx.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+        val info = runCatching { imm.inputMethodList.firstOrNull { it.id == id } }.getOrNull()
+        val act = info?.settingsActivity
+        if (info != null && !act.isNullOrBlank() && start(ctx, Intent(Intent.ACTION_MAIN).setComponent(ComponentName(info.packageName, act)))) return
+        start(ctx, Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+    }
+
+    /** Вибрация при касании по всей системе (нужно «Изменение системных настроек»). */
+    fun touchHaptics(ctx: Context): Boolean = runCatching {
+        Settings.System.getInt(ctx.contentResolver, Settings.System.HAPTIC_FEEDBACK_ENABLED, 1) == 1
+    }.getOrDefault(true)
+
+    fun setTouchHaptics(ctx: Context, on: Boolean): Boolean {
+        if (!Settings.System.canWrite(ctx)) {
+            toast(ctx, "Разрешите Beamox «Изменение системных настроек» и нажмите ещё раз")
+            start(ctx, Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:" + ctx.packageName)))
+            return false
+        }
+        return runCatching { Settings.System.putInt(ctx.contentResolver, Settings.System.HAPTIC_FEEDBACK_ENABLED, if (on) 1 else 0) }.getOrDefault(false)
+    }
+
+    private fun toast(ctx: Context, t: String) = android.widget.Toast.makeText(ctx, t, android.widget.Toast.LENGTH_LONG).show()
 
     fun isDefaultHome(ctx: Context): Boolean = runCatching {
         if (Build.VERSION.SDK_INT >= 29) {
@@ -75,6 +121,7 @@ object PhoneSetup {
             Intent("android.settings.GESTURES_SETTINGS"),
             Intent(Settings.ACTION_SETTINGS),
         )
+        toast(ctx, "Система → Жесты → Системная навигация → «Навигация жестами»")
         for (i in tries) if (start(ctx, i)) return
     }
 

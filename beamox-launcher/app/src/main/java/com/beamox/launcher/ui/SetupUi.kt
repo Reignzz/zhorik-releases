@@ -52,17 +52,21 @@ fun SetupCard(s: LauncherState) {
         SetupStep("Главный экран — Beamox", "Чтобы кнопка «Домой» открывала Beamox", st.defaultHome) {
             PhoneSetup.requestDefaultHome(s.activity, s.ctx)
         }
-        SetupStep("Навигация жестами", "Внизу одна полоска, как на iPhone: «Навигация жестами»", st.gestures) {
+        SetupStep("Навигация жестами", "Внизу одна полоска: Система → Жесты → Системная навигация → «Навигация жестами»", st.gestures) {
             PhoneSetup.openGestureSettings(s.act)
         }
-        SetupStep("Островок: поверх приложений", "Капсула у камеры как на iPhone — включите «Разрешить»", st.overlay) {
-            PhoneSetup.openOverlaySettings(s.act)
+        SetupStep("Островок и шторки", "«Спец. возможности» → «Beamox: островок и шторки» → включить", st.access) {
+            PhoneSetup.openAccessibility(s.act)
         }
-        SetupStep("Островок: доступ к уведомлениям",
-            "Включите «Островок Beamox». Если серый — «О приложении» → ⋮ → «Разрешить ограниченные настройки»",
+        SetupStep("Уведомления в островке и шторке",
+            "Включите «Островок Beamox» в «Доступе к уведомлениям»",
             st.notifications) { PhoneSetup.openNotificationAccess(s.act) }
-        if (!st.notifications) Text("Открыть «О приложении»", color = B.Accent, fontSize = 14.sp,
+        if (!st.notifications || !st.access) Text("Переключатель серый? «О приложении» → ⋮ → «Разрешить ограниченные настройки»",
+            color = B.Accent, fontSize = 14.sp,
             modifier = Modifier.padding(start = 34.dp, bottom = 6.dp).clickable { PhoneSetup.openAppInfo(s.act) })
+        SetupStep("Клавиатура без вибрации", "Откроем настройки клавиатуры: выключите «Вибрация при нажатии клавиш»", st.keyboard) {
+            PhoneSetup.openKeyboardSettings(s.act); s.refreshDevice()
+        }
         SetupStep("Панель Beamox", "Откройте ссылку настройки из Telegram на этом телефоне", st.panel) {
             s.pastePanelLink()
         }

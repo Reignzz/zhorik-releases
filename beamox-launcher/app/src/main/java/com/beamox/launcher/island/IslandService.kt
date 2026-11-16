@@ -1,72 +1,53 @@
 package com.beamox.launcher.island
 
 import android.app.Notification
-import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.media.session.MediaController
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
-import android.os.BatteryManager
 import android.os.Build
-import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import androidx.core.content.ContextCompat
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 
 /**
- * «Островок» как Dynamic Island на iPhone: чёрная капсула вокруг камеры поверх всех приложений.
- * Живёт в службе доступа к уведомлениям (её держит сама система), рисуется окном «поверх других приложений».
- * Нужны два разрешения владельца: «Поверх других приложений» и «Доступ к уведомлениям».
+ * Доступ к уведомлениям: наполняет «островок» (музыка, звонки, баннеры) и шторку уведомлений.
+ * Саму капсулу держит [IslandHub].
  */
 class IslandService : NotificationListenerService() {
-    private var overlay: IslandOverlay? = null
-    private var power: BroadcastReceiver? = null
     /** Последнее показанное содержимое по ключу уведомления — чтобы обновления одного и того же не мигали */
     private val shown = HashMap<String, String>()
 
     override fun onListenerConnected() {
         instance = this
-        attach()
-        val r = object : BroadcastReceiver() {
-            override fun onReceive(c: Context, i: Intent) {
-                if (i.action == Intent.ACTION_POWER_CONNECTED) overlay?.showCharging(batteryPct())
-            }
-        }
-        ContextCompat.registerReceiver(this, r, IntentFilter(Intent.ACTION_POWER_CONNECTED), ContextCompat.RECEIVER_NOT_EXPORTED)
-        power = r
-        // Уже идущие музыка/звонок — сразу в капсулу, без баннеров
-        runCatching { activeNotifications?.forEach { handle(it, initial = true) } }
+        IslandHub.ensure(this)
+        NotifBus.bump()
     }
 
     override fun onListenerDisconnected() { cleanup() }
     override fun onDestroy() { cleanup(); super.onDestroy() }
 
     private fun cleanup() {
-        detach()
-        power?.let { runCatching { unregisterReceiver(it) } }; power = null
         if (instance === this) instance = null
+        NotifBus.bump()
     }
 
-    fun attach() {
-        if (overlay != null || !enabled(this) || !Settings.canDrawOverlays(this)) return
-        overlay = runCatching { IslandOverlay(this).also { it.attach() } }.getOrNull()
-        runCatching { activeNotifications?.forEach { handle(it, initial = true) } }
-    }
+    /** Уже идущие музыка/звонок — сразу в капсулу, без баннеров */
+    fun replay() { runCatching { activeNotifications?.forEach { handle(it, initial = true) } } }
 
-    fun detach() { overlay?.detach(); overlay = null }
-
-    override fun onNotificationPosted(sbn: StatusBarNotification) { handle(sbn, initial = false) }
+    override fun onNotificationPosted(sbn: StatusBarNotification) { handle(sbn, initial = false); NotifBus.bump() }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         shown.remove(sbn.key)
-        overlay?.removeLive(sbn.key)
+        IslandHub.current?.removeLive(sbn.key)
+        NotifBus.bump()
     }
 
     private fun handle(sbn: StatusBarNotification, initial: Boolean) {
-        val o = overlay ?: return
+        val o = IslandHub.current ?: return
         if (sbn.packageName == packageName) return
         val n = sbn.notification ?: return
         val ex = n.extras
@@ -111,21 +92,25 @@ class IslandService : NotificationListenerService() {
         packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
     }.getOrDefault(pkg)
 
-    private fun batteryPct() = (getSystemService(BATTERY_SERVICE) as BatteryManager).getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-
     companion object {
         @Volatile var instance: IslandService? = null
         private fun prefs(ctx: Context) = ctx.getSharedPreferences("island", Context.MODE_PRIVATE)
         fun enabled(ctx: Context) = prefs(ctx).getBoolean("on", true)
         fun setEnabled(ctx: Context, on: Boolean) {
             prefs(ctx).edit().putBoolean("on", on).apply()
-            instance?.let { if (on) it.attach() else it.detach() } ?: refresh(ctx)
+            refresh(ctx)
         }
         /** После выдачи разрешений: поднять капсулу (или попросить систему переподключить службу). */
         fun refresh(ctx: Context) {
-            val s = instance
-            if (s != null) { s.attach(); return }
-            runCatching { requestRebind(ComponentName(ctx, IslandService::class.java)) }
+            IslandHub.ensure(ctx)
+            if (instance == null) runCatching { requestRebind(ComponentName(ctx, IslandService::class.java)) }
         }
     }
+}
+
+/** Счётчик изменений уведомлений — шторка перечитывает список, когда он меняется. */
+object NotifBus {
+    var version by mutableIntStateOf(0)
+        private set
+    fun bump() { version++ }
 }

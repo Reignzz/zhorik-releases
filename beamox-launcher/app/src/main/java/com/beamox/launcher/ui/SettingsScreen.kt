@@ -178,27 +178,44 @@ fun SettingsScreen(s: LauncherState) {
                     })
                     RowItem("Жесты как на iPhone", subtitle = if (s.setup.gestures) null else "Включите «Навигация жестами»",
                         icon = Icons.Rounded.Swipe, iconColor = cBlue, onClick = { com.beamox.launcher.core.PhoneSetup.openGestureSettings(s.act) })
-                    // Островок у камеры (как Dynamic Island): переключатель + разрешения
+                    // Островок у камеры (как Dynamic Island) и шторки как у iPhone
+                    val PS = com.beamox.launcher.core.PhoneSetup
                     var islandOn by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.beamox.launcher.island.IslandService.enabled(s.ctx)) }
                     RowItem("Островок у камеры",
                         subtitle = when {
-                            !s.setup.overlay -> "Нужно разрешение «Поверх других приложений» — нажмите"
-                            !s.setup.notifications -> "Нужен «Доступ к уведомлениям» — нажмите"
+                            !s.setup.islandReady -> "Включите «Спец. возможности → Beamox» — нажмите"
+                            !s.setup.notifications -> "Для музыки и уведомлений нужен «Доступ к уведомлениям» — нажмите"
                             else -> "Музыка, звонки, зарядка и уведомления у камеры"
                         },
                         icon = Icons.Rounded.Apps, iconColor = Color(0xFF1C1C1E),
                         onClick = {
                             when {
-                                !s.setup.overlay -> com.beamox.launcher.core.PhoneSetup.openOverlaySettings(s.act)
-                                !s.setup.notifications -> com.beamox.launcher.core.PhoneSetup.openNotificationAccess(s.act)
+                                !s.setup.islandReady -> PS.openAccessibility(s.act)
+                                !s.setup.notifications -> PS.openNotificationAccess(s.act)
                                 else -> { islandOn = !islandOn; com.beamox.launcher.island.IslandService.setEnabled(s.ctx, islandOn) }
                             }
                         },
                         end = { IosSwitch(islandOn && s.setup.islandReady) {
                             if (s.setup.islandReady) { islandOn = it; com.beamox.launcher.island.IslandService.setEnabled(s.ctx, it) }
-                            else if (!s.setup.overlay) com.beamox.launcher.core.PhoneSetup.openOverlaySettings(s.act)
-                            else com.beamox.launcher.core.PhoneSetup.openNotificationAccess(s.act)
+                            else PS.openAccessibility(s.act)
                         } })
+                    var shadeOn by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.beamox.launcher.island.BeamoxAccess.shadeEnabled(s.ctx)) }
+                    RowItem("Шторки как у iPhone",
+                        subtitle = if (s.setup.access) "Свайп сверху: слева — уведомления, справа — пункт управления"
+                            else "Нужны «Спец. возможности → Beamox» — нажмите",
+                        icon = Icons.Rounded.ToggleOn, iconColor = cBlue,
+                        onClick = { if (!s.setup.access) PS.openAccessibility(s.act) else { shadeOn = !shadeOn; com.beamox.launcher.island.BeamoxAccess.setShadeEnabled(s.ctx, shadeOn) } },
+                        end = { IosSwitch(shadeOn && s.setup.access) {
+                            if (s.setup.access) { shadeOn = it; com.beamox.launcher.island.BeamoxAccess.setShadeEnabled(s.ctx, it) }
+                            else PS.openAccessibility(s.act)
+                        } })
+                    var vibro by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(s.prefs.haptics) }
+                    RowItem("Вибрация при нажатиях", subtitle = "Лаунчер и касания в системе",
+                        icon = Icons.Rounded.Swipe, iconColor = cGray,
+                        onClick = { vibro = !vibro; s.prefs.haptics = vibro; PS.setTouchHaptics(s.act, vibro) },
+                        end = { IosSwitch(vibro) { vibro = it; s.prefs.haptics = it; PS.setTouchHaptics(s.act, it) } })
+                    RowItem("Клавиатура", subtitle = "Вибрация клавиш и вид как у iPhone",
+                        icon = Icons.Rounded.Apps, iconColor = cGray, onClick = { PS.openKeyboardSettings(s.act); s.refreshDevice() })
                     RowItem("Значки", trailing = s.iconPackPkg?.let { p -> com.beamox.launcher.core.IconPack.installed(s.ctx).firstOrNull { it.pkg == p }?.label } ?: "Beamox",
                         icon = Icons.Rounded.Apps, iconColor = cBlue, onClick = { iconPick = true })
                     RowItem("Обои", icon = Icons.Rounded.Wallpaper, iconColor = cTeal, onClick = {

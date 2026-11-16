@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="access_summary">Островок у камеры и шторки как у iPhone</string>
+    <string name="access_desc">Beamox рисует поверх всех приложений капсулу у камеры (музыка, звонки, зарядка, уведомления) и шторки как у iPhone: свайп сверху слева — уведомления, справа — пункт управления. Содержимое экрана Beamox не читает и ничего за вас не нажимает.</string>
+</resources>

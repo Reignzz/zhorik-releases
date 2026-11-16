@@ -38,6 +38,11 @@ class Prefs(ctx: Context) {
         get() = p.getBoolean("handsFree", false)
         set(v) = p.edit().putBoolean("handsFree", v).apply()
 
+    /** Вибрация при нажатиях в лаунчере (владелец просил выключить — по умолчанию нет) */
+    var haptics: Boolean
+        get() = p.getBoolean("haptics", false)
+        set(v) = p.edit().putBoolean("haptics", v).apply()
+
     /** Claude через официальное приложение (ваш аккаунт claude.ai) — по умолчанию; false — встроенный чат по ключу API */
     var claudeViaApp: Boolean
         get() = p.getBoolean("claudeViaApp", true)

@@ -1,6 +1,25 @@
 package com.beamox.launcher.ui
 
 import android.app.NotificationManager
+import android.content.ComponentName
+import android.media.MediaMetadata
+import android.media.session.MediaSessionManager
+import android.media.session.PlaybackState
+import androidx.compose.foundation.Image
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import com.beamox.launcher.island.IslandService
+import com.beamox.launcher.island.NotifBus
+import kotlinx.coroutines.delay
 import android.content.Context
 import android.content.Intent
 import android.hardware.camera2.CameraCharacteristics
@@ -64,10 +83,32 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.beamox.launcher.core.AppRepository
 
+/** Где открыт пункт управления: в лаунчере (есть [launcher]) или поверх всех приложений (шторка). */
+class CcEnv(
+    val ctx: Context,
+    val start: (Intent) -> Unit,
+    /** Открыть системную шторку Android (true — быстрые настройки) — только в шторке поверх приложений */
+    val androidShade: ((Boolean) -> Unit)? = null,
+    val launcher: LauncherState? = null,
+) {
+    fun openSys(a: SysApp) {
+        launcher?.let { it.openSys(a); return }
+        val pm = ctx.packageManager
+        val i = a.intent()
+        val alt = a.fallbackPackages().firstNotNullOfOrNull { runCatching { pm.getLaunchIntentForPackage(it) }.getOrNull() }
+        start(if (i.resolveActivity(pm) == null && alt != null) alt else i)
+    }
+}
+
 /** «Пункт управления» как в iOS 26 */
 @Composable
-fun ControlCenter(s: LauncherState, onClose: () -> Unit) {
-    val ctx = s.ctx
+fun ControlCenter(s: LauncherState, onClose: () -> Unit) =
+    ControlCenterView(CcEnv(s.ctx, { AppRepository.safeStart(s.act, it) }, launcher = s), onClose)
+
+@Composable
+fun ControlCenterView(e: CcEnv, onClose: () -> Unit) {
+    val ctx = e.ctx
+    val s = e.launcher
     val am = runCatching { ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager }.getOrNull()
     val nm = runCatching { ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager }.getOrNull()
     var torch by remember { mutableStateOf(ControlState.torchOn) }
@@ -82,7 +123,7 @@ fun ControlCenter(s: LauncherState, onClose: () -> Unit) {
     val maxVol = runCatching { am!!.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }.getOrDefault(15).coerceAtLeast(1)
     var volume by remember { mutableFloatStateOf(runCatching { am!!.getStreamVolume(AudioManager.STREAM_MUSIC) / maxVol.toFloat() }.getOrDefault(0.5f)) }
 
-    fun start(i: Intent) = AppRepository.safeStart(s.act, i)
+    fun start(i: Intent) = e.start(i)
     fun needWriteSettings(): Boolean {
         if (Settings.System.canWrite(ctx)) return false
         start(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${ctx.packageName}")))
@@ -110,16 +151,18 @@ fun ControlCenter(s: LauncherState, onClose: () -> Unit) {
                         Round(Icons.Rounded.Bluetooth, true, Color(0xFF0A84FF)) { start(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
                     }
                 }
-                // Голос Beamox
-                Column(Modifier.weight(1f).aspectRatio(1f).ccTile(if (s.handsFree) B.Violet else null)
-                    .pointerInput(s.handsFree) { detectTapGestures { s.setHandsFreeMode(!s.handsFree) } }.padding(16.dp),
-                    verticalArrangement = Arrangement.SpaceBetween) {
-                    Icon(Icons.Rounded.Mic, null, tint = Color.White, modifier = Modifier.size(30.dp))
-                    Column {
-                        Text("«Привет, Бимокс»", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                        Text(if (s.handsFree) "Слушаю" else "Выключено", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                if (s != null) {
+                    // Голос Beamox
+                    Column(Modifier.weight(1f).aspectRatio(1f).ccTile(if (s.handsFree) B.Violet else null)
+                        .pointerInput(s.handsFree) { detectTapGestures { s.setHandsFreeMode(!s.handsFree) } }.padding(16.dp),
+                        verticalArrangement = Arrangement.SpaceBetween) {
+                        Icon(Icons.Rounded.Mic, null, tint = Color.White, modifier = Modifier.size(30.dp))
+                        Column {
+                            Text("«Привет, Бимокс»", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(if (s.handsFree) "Слушаю" else "Выключено", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
                     }
-                }
+                } else NowPlayingTile(ctx, Modifier.weight(1f).aspectRatio(1f).ccTile())
             }
             Row(Modifier.height(170.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -155,14 +198,62 @@ fun ControlCenter(s: LauncherState, onClose: () -> Unit) {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Square(Icons.Rounded.FlashlightOn, torch, Color.White, Modifier.weight(1f), activeGlyph = Color.Black) { torch = ControlState.setTorch(ctx, !torch) }
-                Square(Icons.Rounded.Alarm, false, Color.White, Modifier.weight(1f)) { s.openSys(SysApp.CLOCK) }
-                Square(Icons.Rounded.Calculate, false, Color.White, Modifier.weight(1f)) { s.openSys(SysApp.CALCULATOR) }
-                Square(Icons.Rounded.PhotoCamera, false, Color.White, Modifier.weight(1f)) { s.openSys(SysApp.CAMERA) }
+                Square(Icons.Rounded.Alarm, false, Color.White, Modifier.weight(1f)) { e.openSys(SysApp.CLOCK) }
+                Square(Icons.Rounded.Calculate, false, Color.White, Modifier.weight(1f)) { e.openSys(SysApp.CALCULATOR) }
+                Square(Icons.Rounded.PhotoCamera, false, Color.White, Modifier.weight(1f)) { e.openSys(SysApp.CAMERA) }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Square(Icons.Rounded.BatterySaver, false, Color(0xFFFFD60A), Modifier.weight(1f)) { start(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS)) }
                 Spacer(Modifier.weight(3f))
             }
+            e.androidShade?.let { sys ->
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Wide(Icons.Rounded.Tune, "Шторка Android", false, Color.Gray, Modifier.weight(1f).height(56.dp)) { sys(true) }
+                    Wide(Icons.Rounded.Settings, "Настройки", false, Color.Gray, Modifier.weight(1f).height(56.dp)) { start(Intent(Settings.ACTION_SETTINGS)) }
+                }
+            }
+        }
+    }
+}
+
+/** Плитка «Сейчас играет» (в шторке поверх приложений вместо голоса). Нужен доступ к уведомлениям. */
+@Composable
+private fun NowPlayingTile(ctx: Context, modifier: Modifier) {
+    val ver = NotifBus.version
+    var tick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) { while (true) { delay(1500); tick++ } }
+    val mc = remember(ver, tick) {
+        runCatching {
+            ctx.getSystemService(MediaSessionManager::class.java)
+                .getActiveSessions(ComponentName(ctx, IslandService::class.java)).firstOrNull()
+        }.getOrNull()
+    }
+    val md = mc?.metadata
+    val title = md?.getString(MediaMetadata.METADATA_KEY_TITLE)
+    val artist = md?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: md?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
+    val art = remember(title, mc?.packageName) {
+        runCatching { (md?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) ?: md?.getBitmap(MediaMetadata.METADATA_KEY_ART))?.asImageBitmap() }.getOrNull()
+    }
+    val playing = mc?.playbackState?.state == PlaybackState.STATE_PLAYING
+    Column(modifier.padding(14.dp), verticalArrangement = Arrangement.SpaceBetween) {
+        Box(Modifier.size(46.dp).clip(RoundedCornerShape(10.dp)).background(Color(0x40FFFFFF))
+            .pointerInput(mc) { detectTapGestures { runCatching { mc?.sessionActivity?.send() } } },
+            contentAlignment = Alignment.Center) {
+            if (art != null) Image(art, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            else Icon(Icons.Rounded.MusicNote, null, tint = Color.White, modifier = Modifier.size(24.dp))
+        }
+        Column {
+            Text(title ?: "Не играет", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            if (!artist.isNullOrBlank()) Text(artist, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp, maxLines = 1)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            val t = mc?.transportControls
+            Icon(Icons.Rounded.SkipPrevious, null, tint = Color.White, modifier = Modifier.size(30.dp)
+                .pointerInput(mc) { detectTapGestures { t?.skipToPrevious(); tick++ } })
+            Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(34.dp)
+                .pointerInput(mc, playing) { detectTapGestures { if (playing) t?.pause() else t?.play(); tick++ } })
+            Icon(Icons.Rounded.SkipNext, null, tint = Color.White, modifier = Modifier.size(30.dp)
+                .pointerInput(mc) { detectTapGestures { t?.skipToNext(); tick++ } })
         }
     }
 }

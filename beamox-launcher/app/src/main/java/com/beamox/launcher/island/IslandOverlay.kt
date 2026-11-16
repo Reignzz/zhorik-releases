@@ -40,7 +40,11 @@ data class IslandItem(
  * Окно капсулы. В покое оно размером с капсулу и не принимает касаний (под ним строка состояния),
  * в раскрытом виде — во всю ширину и нажимается: нажатие открывает уведомление, смахивание вверх — закрывает.
  */
-class IslandOverlay(private val ctx: Context) {
+class IslandOverlay(
+    private val ctx: Context,
+    /** TYPE_ACCESSIBILITY_OVERLAY (из службы спец. возможностей) — поверх строки состояния; иначе обычное «поверх приложений» */
+    windowType: Int = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+) {
     private val wm = ctx.getSystemService(WindowManager::class.java)
     private val h = Handler(Looper.getMainLooper())
     private val d = ctx.resources.displayMetrics.density
@@ -49,7 +53,7 @@ class IslandOverlay(private val ctx: Context) {
     private val view = IslandView(ctx, this)
     private val lp = WindowManager.LayoutParams(
         1, 1,
-        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        windowType,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,

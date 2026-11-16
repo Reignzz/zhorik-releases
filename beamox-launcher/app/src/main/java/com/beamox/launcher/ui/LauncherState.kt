@@ -418,6 +418,7 @@ class LauncherState(
     }
 
     fun haptic() {
+        if (!prefs.haptics) return
         activity?.window?.decorView?.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
     }
 
