@@ -119,6 +119,8 @@ fun HomeScreen(s: LauncherState) {
                     else -> HomePage(s, rest[page - 2], withWidgets = false, k = k)
                 }
             }
+            // Пока Beamox не главный экран — плашка сверху (исчезает сама после выбора)
+            if (!s.setup.defaultHome) HomeDefaultBanner(s, Modifier.align(Alignment.TopCenter).padding(top = IosStatusBarHeight + 4.dp))
             // «Поиск» (центр в 170 pt от низа) / точки страниц
             Box(Modifier.align(Alignment.BottomCenter).padding(bottom = ((170 - 15) * k).dp)) {
                 LiquidGlass(CircleShape, Modifier.height((30 * k).dp).bounceClick { s.searchOpen = true },

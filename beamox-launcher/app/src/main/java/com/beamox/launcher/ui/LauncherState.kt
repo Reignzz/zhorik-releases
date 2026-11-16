@@ -92,6 +92,9 @@ class LauncherState(
 
     // Устройство
     var device by mutableStateOf(DeviceInfo.read(ctx))
+    /** Что ещё не настроено: главный экран, жесты, островок, панель (в предпросмотре — всё «готово») */
+    var setup by mutableStateOf(if (preview) com.beamox.launcher.core.SetupState()
+        else com.beamox.launcher.core.PhoneSetup.read(ctx, prefs.dashboardUrl))
 
     // Голос
     val voice by lazy { VoiceEngine(act) }
@@ -189,7 +192,17 @@ class LauncherState(
         dock = d; prefs.dock = d
     }
 
-    fun refreshDevice() { device = DeviceInfo.read(ctx) }
+    fun refreshDevice() {
+        device = DeviceInfo.read(ctx)
+        if (!preview) setup = com.beamox.launcher.core.PhoneSetup.read(ctx, prefs.dashboardUrl)
+    }
+
+    /** Вопрос в официальное приложение Claude / ChatGPT / Gemini (вход под аккаунтом владельца) */
+    fun askAi(app: com.beamox.launcher.core.AiApp, text: String) {
+        haptic()
+        val msg = com.beamox.launcher.core.AiApps.ask(act, app, text)
+        if (msg.isNotBlank()) toast(msg)
+    }
 
     fun refreshStats() = scope.launch {
         if (preview) return@launch

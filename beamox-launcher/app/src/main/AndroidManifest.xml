@@ -67,7 +67,25 @@
                 <action android:name="android.intent.action.VOICE_COMMAND" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <!-- Настройка одним нажатием: beamox://setup?panel=…&token=… (страница …/setup панели) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="beamox" android:host="setup" />
+            </intent-filter>
         </activity>
+
+        <!-- «Островок» у камеры: живёт в службе доступа к уведомлениям -->
+        <service
+            android:name=".island.IslandService"
+            android:exported="true"
+            android:label="Островок Beamox"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
         <service
             android:name=".voice.VoiceService"

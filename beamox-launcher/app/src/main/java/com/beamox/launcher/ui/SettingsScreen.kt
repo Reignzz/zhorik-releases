@@ -176,9 +176,29 @@ fun SettingsScreen(s: LauncherState) {
                             else start(Intent(Settings.ACTION_HOME_SETTINGS))
                         } else start(Intent(Settings.ACTION_HOME_SETTINGS))
                     })
-                    RowItem("Жесты как на iPhone", icon = Icons.Rounded.Swipe, iconColor = cBlue, onClick = {
-                        if (!start(Intent("android.settings.GESTURES_SETTINGS"))) start(Intent(Settings.ACTION_SETTINGS))
-                    })
+                    RowItem("Жесты как на iPhone", subtitle = if (s.setup.gestures) null else "Включите «Навигация жестами»",
+                        icon = Icons.Rounded.Swipe, iconColor = cBlue, onClick = { com.beamox.launcher.core.PhoneSetup.openGestureSettings(s.act) })
+                    // Островок у камеры (как Dynamic Island): переключатель + разрешения
+                    var islandOn by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.beamox.launcher.island.IslandService.enabled(s.ctx)) }
+                    RowItem("Островок у камеры",
+                        subtitle = when {
+                            !s.setup.overlay -> "Нужно разрешение «Поверх других приложений» — нажмите"
+                            !s.setup.notifications -> "Нужен «Доступ к уведомлениям» — нажмите"
+                            else -> "Музыка, звонки, зарядка и уведомления у камеры"
+                        },
+                        icon = Icons.Rounded.Apps, iconColor = Color(0xFF1C1C1E),
+                        onClick = {
+                            when {
+                                !s.setup.overlay -> com.beamox.launcher.core.PhoneSetup.openOverlaySettings(s.act)
+                                !s.setup.notifications -> com.beamox.launcher.core.PhoneSetup.openNotificationAccess(s.act)
+                                else -> { islandOn = !islandOn; com.beamox.launcher.island.IslandService.setEnabled(s.ctx, islandOn) }
+                            }
+                        },
+                        end = { IosSwitch(islandOn && s.setup.islandReady) {
+                            if (s.setup.islandReady) { islandOn = it; com.beamox.launcher.island.IslandService.setEnabled(s.ctx, it) }
+                            else if (!s.setup.overlay) com.beamox.launcher.core.PhoneSetup.openOverlaySettings(s.act)
+                            else com.beamox.launcher.core.PhoneSetup.openNotificationAccess(s.act)
+                        } })
                     RowItem("Значки", trailing = s.iconPackPkg?.let { p -> com.beamox.launcher.core.IconPack.installed(s.ctx).firstOrNull { it.pkg == p }?.label } ?: "Beamox",
                         icon = Icons.Rounded.Apps, iconColor = cBlue, onClick = { iconPick = true })
                     RowItem("Обои", icon = Icons.Rounded.Wallpaper, iconColor = cTeal, onClick = {

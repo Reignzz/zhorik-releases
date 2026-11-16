@@ -112,6 +112,8 @@ fun ClaudeScreen(s: LauncherState) {
                     .padding(horizontal = 14.dp, vertical = 8.dp))
             }
         }
+        // Тот же вопрос — в официальные приложения Claude, ChatGPT, Gemini (ваши аккаунты, без ключей)
+        AiAppsRow(s, s.claudeDraft) { s.claudeDraft = "" }
         // Строка ввода как в «Сообщениях»: «+», поле, микрофон / синяя стрелка
         Row(Modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 10.dp),
             verticalAlignment = Alignment.Bottom) {

@@ -250,6 +250,7 @@ fun TodayPage(s: LauncherState) {
                 color = B.Text, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp,
                 modifier = Modifier.padding(start = 4.dp, top = 18.dp))
         }
+        if (s.setup.missing > 0) SetupCard(s)
         val d = s.dash
         if (d == null) ConnectPanelCard(s)
         else {

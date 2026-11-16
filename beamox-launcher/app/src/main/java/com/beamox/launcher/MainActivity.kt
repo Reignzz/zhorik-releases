@@ -87,7 +87,27 @@ class MainActivity : ComponentActivity() {
             }
             Intent.ACTION_ASSIST, Intent.ACTION_VOICE_COMMAND -> state.startVoice()
             Intent.ACTION_MAIN -> if (!fresh && i.hasCategory(Intent.CATEGORY_HOME)) state.goHome()
+            Intent.ACTION_VIEW -> if (i.data?.scheme == "beamox" && i.data?.host == "setup") applySetupLink(i.data!!)
         }
+    }
+
+    /** beamox://setup?panel=…&token=… — ссылка со страницы …/setup панели. Спрашиваем, чтобы чужая ссылка не подменила панель. */
+    private fun applySetupLink(u: android.net.Uri) {
+        val panel = u.getQueryParameter("panel")?.trim().orEmpty()
+        val token = u.getQueryParameter("token")?.trim().orEmpty()
+        val host = runCatching { android.net.Uri.parse(panel).host }.getOrNull()
+        if (!panel.startsWith("https://") || host.isNullOrBlank()) { state.toast("Ссылка настройки неполная"); return }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Подключить панель Beamox?")
+            .setMessage("Адрес: $host\nЛаунчер возьмёт оттуда проекты, задачи, студию и лимиты Claude, а задачи с телефона будет отправлять туда же.")
+            .setPositiveButton("Подключить") { _, _ ->
+                state.prefs.dashboardUrl = panel
+                if (token.isNotBlank()) state.secrets.statsToken = token
+                state.refreshStats(); state.refreshDevice()
+                state.toast("Панель подключена")
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 
     /** Системную строку прячем — рисуем свою, как на iPhone (свайп сверху показывает системную/шторку) */
@@ -102,6 +122,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         hideSystemStatusBar()
         state.refreshDevice()
+        // Вернулись из настроек с выданными разрешениями — поднять островок
+        com.beamox.launcher.island.IslandService.refresh(applicationContext)
         // install.sh мог прислать новый provision.json, пока лаунчер работал
         if (Provisioning.importIfPresent(applicationContext, state.prefs, state.secrets)) {
             state.reloadConfig(); state.refreshStats(); state.refreshMail()
