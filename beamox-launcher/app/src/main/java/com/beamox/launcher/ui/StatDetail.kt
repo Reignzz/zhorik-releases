@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -68,7 +69,7 @@ fun StatDetailSheet(s: LauncherState, det: StatDetail, onClose: () -> Unit) {
     Box(Modifier.fillMaxSize().background(Color(0x99000000)).clickable(onClick = onClose)) {
         Column(Modifier.fillMaxSize().padding(top = 56.dp)
             .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)).background(Sheet)
-            .pointerInput(Unit) { androidx.compose.foundation.gestures.detectTapGestures { } }) {
+            .pointerInput(Unit) { detectTapGestures { } }) {
             // ручка и заголовок: смахнуть вниз — закрыть
             Column(Modifier.fillMaxWidth().pointerInput(Unit) { detectVerticalDragGestures { _, dy -> if (dy > 30) onClose() } }) {
                 Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) {
