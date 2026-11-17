@@ -297,7 +297,9 @@ fun SettingsScreen(s: LauncherState) {
                                 if (info == null) status = "Установлена последняя версия"
                                 else {
                                     status = "Скачиваю версию ${info.versionName}…"
-                                    Updater.downloadAndInstall(s.ctx, info).onFailure { status = "Ошибка: ${it.message}" }
+                                    Updater.downloadAndInstall(s.ctx, info) { p -> status = "Скачиваю версию ${info.versionName}… $p%" }
+                                        .onSuccess { status = "Устанавливаю ${info.versionName}…" }
+                                        .onFailure { status = "Ошибка: ${it.message}. Открыл загрузку в браузере" }
                                 }
                             }, { status = "Не удалось проверить: ${it.message}" })
                         }
