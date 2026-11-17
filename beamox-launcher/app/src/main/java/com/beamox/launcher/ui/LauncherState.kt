@@ -66,6 +66,8 @@ class LauncherState(
     var previewPage = 1
     var searchOpen by mutableStateOf(false)
     var controlOpen by mutableStateOf(false)
+    /** Открытая карточка подробностей статистики (нажатие на цифру) */
+    var detail by mutableStateOf<StatDetail?>(null)
     var cleanupOpen by mutableStateOf(false)
 
     // Статистика
@@ -140,7 +142,7 @@ class LauncherState(
         }
     }
 
-    fun goHome() { screen = null; searchOpen = false; controlOpen = false; homeRequest++ }
+    fun goHome() { screen = null; searchOpen = false; controlOpen = false; detail = null; homeRequest++ }
 
     fun open(m: Module) {
         searchOpen = false

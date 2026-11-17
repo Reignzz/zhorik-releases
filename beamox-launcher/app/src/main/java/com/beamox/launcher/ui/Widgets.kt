@@ -141,10 +141,13 @@ fun DemoBadge() { StatusPill("демо", B.Amber) }
 /** Четыре цифры студии в ряд (как в панели) */
 @Composable
 fun StudioNumbers(d: Dashboard) {
+    val pick = LocalPick.current
     Row(Modifier.fillMaxWidth()) {
         listOf(num(d.reach) to "Охват", (d.er?.let { fx(it) + "%" } ?: "—") to "ER",
-            num(d.v7) to "За 7 дней", num(d.comments) to "Коммент.").forEach { (v, l) ->
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+            num(d.v7) to "За 7 дней", num(d.comments) to "Коммент.").forEachIndexed { i, (v, l) ->
+            Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+                .clickable { pick(listOf(StatDetail.Reach, StatDetail.Er, StatDetail.Week, StatDetail.Comments)[i]) }
+                .padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(v, color = B.Text, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
                 Text(l, color = B.Faint, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             }
@@ -155,11 +158,12 @@ fun StudioNumbers(d: Dashboard) {
 /** Плитки площадок с градиентной полосой */
 @Composable
 fun PlatformTiles(d: Dashboard, onClick: () -> Unit = {}) {
+    val pick = LocalPick.current
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         d.platforms.forEach { p ->
             val g = B.platform[p.name] ?: listOf(Color.Gray, Color.DarkGray)
             Column(Modifier.width(96.dp).clip(RoundedCornerShape(18.dp)).background(Color(0x0FFFFFFF))
-                .clickable { onClick() }.padding(12.dp)) {
+                .clickable { pick(StatDetail.Platform(p.name)) }.padding(12.dp)) {
                 Box(Modifier.width(26.dp).height(5.dp).clip(CircleShape).background(Brush.horizontalGradient(g)))
                 Text(p.name, color = B.Dim, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
                 Text("${p.total}", color = B.Text, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
@@ -173,7 +177,9 @@ fun PlatformTiles(d: Dashboard, onClick: () -> Unit = {}) {
 /** Текущая работа студии: «плановый цикл 3/10» или «отдыхает до 12:45» */
 @Composable
 fun StudioJob(d: Dashboard) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp).clip(RoundedCornerShape(18.dp)).background(Color(0x0FFFFFFF)).padding(14.dp)) {
+    val pick = LocalPick.current
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp).clip(RoundedCornerShape(18.dp)).background(Color(0x0FFFFFFF))
+        .clickable { pick(StatDetail.Job) }.padding(14.dp)) {
         if (d.jobWhat != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(d.jobWhat.replaceFirstChar { it.uppercase() }, color = B.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -198,9 +204,11 @@ fun SessionsList(d: Dashboard, max: Int = 4) {
         Text("Всё тихо — Claude отдыхает", color = B.Faint, fontSize = 14.sp, modifier = Modifier.padding(vertical = 6.dp))
         return
     }
+    val pick = LocalPick.current
     d.sessions.take(max).forEach { s ->
         val col = when (s.state) { "waiting" -> B.Amber; "working" -> B.Green; else -> B.Faint }
-        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { pick(StatDetail.Session(s)) }.padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(9.dp).clip(CircleShape).background(col))
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
@@ -218,15 +226,22 @@ fun SessionsList(d: Dashboard, max: Int = 4) {
 fun LimitRings(d: Dashboard, size: Dp = 88.dp) {
     val now = System.currentTimeMillis()
     val fiveActive = d.fiveReset != null && d.fiveReset > now
+    val pick = LocalPick.current
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+        Box(Modifier.clip(RoundedCornerShape(16.dp)).clickable { pick(StatDetail.Limits) }) {
         Ring(((d.weekPct ?: 0.0) / 100).toFloat(), B.GWeek, d.weekPct?.let { "${it.toInt()}%" } ?: "—", "Неделя",
             d.weekReset?.let { "сброс " + SimpleDateFormat("EE HH:mm", ru).format(Date(it)) } ?: "", size)
+        }
+        Box(Modifier.clip(RoundedCornerShape(16.dp)).clickable { pick(StatDetail.Limits) }) {
         Ring(if (fiveActive) ((d.fivePct ?: 0.0) / 100).toFloat() else 0f, B.GFive,
             if (fiveActive) "${d.fivePct?.toInt() ?: 0}%" else "0%", "5 часов",
             if (fiveActive) "сброс через ${dur(d.fiveReset!! - now)}" else "новое окно", size)
+        }
         val mf = if (d.macRamUsed != null && d.macRamLimit != null && d.macRamLimit > 0) (d.macRamUsed / d.macRamLimit).toFloat() else 0f
+        Box(Modifier.clip(RoundedCornerShape(16.dp)).clickable { pick(StatDetail.Machines) }) {
         Ring(mf, B.GMint, d.macRamUsed?.let { fx(it) } ?: "—", "Память Mac",
             if (d.macOnline) "из ${fx(d.macRamLimit)} ГБ" + (d.macCpu?.let { " · ЦП $it%" } ?: "") else "Mac спит", size)
+        }
     }
 }
 

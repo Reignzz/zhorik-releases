@@ -121,7 +121,8 @@ fun NotificationCenterView(e: CcEnv, onClose: () -> Unit) {
     val ru = Locale("ru")
     val closeOnSwipeUp = Modifier.pointerInput(Unit) { detectVerticalDragGestures { _, dy -> if (dy < -25) onClose() } }
 
-    Box(Modifier.fillMaxSize().background(Color(0xCC0B0A0F))) {
+    Box(Modifier.fillMaxSize()) {
+        ShadeBackdrop(ctx)
         Column(Modifier.fillMaxSize().padding(top = IosStatusBarHeight)) {
             // Часы и дата — как на экране блокировки
             Column(Modifier.fillMaxWidth().then(closeOnSwipeUp).pointerInput(Unit) { detectTapGestures { } }.padding(top = 14.dp, bottom = 18.dp),
@@ -174,7 +175,7 @@ fun NotificationCenterView(e: CcEnv, onClose: () -> Unit) {
 private fun NotifCard(n: NcItem, now: Long, onOpen: () -> Unit, onDismiss: () -> Unit) {
     val off = remember(n.key) { Animatable(0f) }
     val scope = rememberCoroutineScope()
-    Row(Modifier.fillMaxWidth()
+    LiquidGlass(RoundedCornerShape(22.dp), Modifier.fillMaxWidth()
         .offset { IntOffset(off.value.roundToInt(), 0) }
         .alpha((1f - abs(off.value) / 900f).coerceIn(0.2f, 1f))
         .pointerInput(n.key) {
@@ -190,9 +191,8 @@ private fun NotifCard(n: NcItem, now: Long, onOpen: () -> Unit, onDismiss: () ->
                 onDragCancel = { scope.launch { off.animateTo(0f) } },
             ) { ch, dx -> ch.consume(); scope.launch { off.snapTo(off.value + dx) } }
         }
-        .clip(RoundedCornerShape(22.dp)).background(Color(0x40FFFFFF))
-        .pointerInput(n.key) { detectTapGestures { onOpen() } }
-        .padding(12.dp), verticalAlignment = Alignment.Top) {
+        .pointerInput(n.key) { detectTapGestures { onOpen() } }, tint = Color(0x1FFFFFFF)) {
+    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
         if (n.icon != null) Image(n.icon, null, modifier = Modifier.size(38.dp).clip(RoundedCornerShape(9.dp)))
         else Box(Modifier.size(38.dp).clip(RoundedCornerShape(9.dp)).background(Color(0x55FFFFFF)))
         Spacer(Modifier.width(10.dp))
@@ -207,6 +207,7 @@ private fun NotifCard(n: NcItem, now: Long, onOpen: () -> Unit, onDismiss: () ->
             if (n.text.isNotEmpty()) Text(n.text, color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp,
                 maxLines = 3, overflow = TextOverflow.Ellipsis)
         }
+    }
     }
 }
 

@@ -31,8 +31,9 @@ fun LauncherRoot(s: LauncherState) {
             delay(s.config.statsRefreshMinutes * 60_000L)
         }
     }
-    BackHandler(enabled = s.screen != null || s.searchOpen || s.controlOpen || s.voiceOpen) {
+    BackHandler(enabled = s.detail != null || s.screen != null || s.searchOpen || s.controlOpen || s.voiceOpen) {
         when {
+            s.detail != null -> s.detail = null
             s.voiceOpen -> s.closeVoice()
             s.controlOpen -> s.controlOpen = false
             s.searchOpen -> s.searchOpen = false
@@ -50,7 +51,7 @@ fun LauncherRoot(s: LauncherState) {
         else com.beamox.launcher.core.BeamoxWallpaper.draw(wpW, wpH, s.config.company, s.config.tagline, big = false)
         android.graphics.Bitmap.createScaledBitmap(bmp, wpW, wpH, true).asImageBitmap()
     }
-    androidx.compose.runtime.CompositionLocalProvider(LocalWallpaper provides wallpaper) {
+    androidx.compose.runtime.CompositionLocalProvider(LocalWallpaper provides wallpaper, LocalPick provides { d: StatDetail -> s.detail = d }) {
     Box(Modifier.fillMaxSize()) {
         androidx.compose.foundation.Image(wallpaper, null, Modifier.fillMaxSize(),
             contentScale = androidx.compose.ui.layout.ContentScale.Crop, alignment = androidx.compose.ui.Alignment.TopStart)
@@ -72,11 +73,17 @@ fun LauncherRoot(s: LauncherState) {
                 }
             }
         }
-        AnimatedVisibility(s.controlOpen, enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {
+        AnimatedVisibility(s.controlOpen, enter = fadeIn() + scaleIn(initialScale = 0.94f), exit = fadeOut() + scaleOut(targetScale = 0.96f)) {
             ControlCenter(s) { s.controlOpen = false }
         }
+        // Подробности по нажатию на цифру статистики — лист снизу, как в iOS
+        val lastDetail = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<StatDetail?>(null) }
+        s.detail?.let { lastDetail.value = it }
+        AnimatedVisibility(s.detail != null, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+            lastDetail.value?.let { StatDetailSheet(s, it) { s.detail = null } }
+        }
         AnimatedVisibility(s.voiceOpen, enter = fadeIn(), exit = fadeOut()) { VoiceOverlay(s) }
-        IosStatusBar(s)
+        if (!s.controlOpen) IosStatusBar(s)
     }
     }
 }

@@ -88,6 +88,9 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_ASSIST, Intent.ACTION_VOICE_COMMAND -> state.startVoice()
             Intent.ACTION_MAIN -> if (!fresh && i.hasCategory(Intent.CATEGORY_HOME)) state.goHome()
             Intent.ACTION_VIEW -> if (i.data?.scheme == "beamox" && i.data?.host == "setup") applySetupLink(i.data!!)
+            com.beamox.launcher.ui.CcEnv.OPEN_MODULE -> i.getStringExtra("module")?.let { n ->
+                runCatching { state.open(com.beamox.launcher.ui.Module.valueOf(n)) }
+            }
         }
     }
 

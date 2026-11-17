@@ -22,8 +22,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -37,7 +38,10 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import androidx.compose.runtime.CompositionLocalProvider
 import com.beamox.launcher.ui.BeamoxTheme
+import com.beamox.launcher.ui.LocalWallpaper
+import com.beamox.launcher.ui.ShadeWallpaper
 import com.beamox.launcher.ui.CcEnv
 import com.beamox.launcher.ui.ControlCenterView
 import com.beamox.launcher.ui.NotificationCenterView
@@ -208,18 +212,19 @@ private class ShadeWindow(private val svc: BeamoxAccess) : LifecycleOwner, Saved
             ctx = svc,
             start = { i -> hide(now = true); runCatching { svc.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } },
             androidShade = { quick -> svc.androidShade(quick) },
+            close = { hide(now = true) },
         )
         val cv = ComposeView(svc).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
             setContent {
-                BeamoxTheme {
-                    AnimatedVisibility(visible, enter = slideInVertically { -it / 3 } + fadeIn(), exit = slideOutVertically { -it / 3 } + fadeOut()) {
+                BeamoxTheme { CompositionLocalProvider(LocalWallpaper provides ShadeWallpaper.full(svc)) {
+                    AnimatedVisibility(visible, enter = fadeIn(tween(200)) + scaleIn(tween(240), initialScale = 0.94f), exit = fadeOut(tween(170)) + scaleOut(tween(170), targetScale = 0.96f)) {
                         when (mode) {
                             ShadeMode.CONTROL -> ControlCenterView(env) { hide() }
                             ShadeMode.NOTIFICATIONS -> NotificationCenterView(env) { hide() }
                         }
                     }
-                }
+                } }
             }
         }
         frame.addView(cv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
